@@ -1259,7 +1259,7 @@ internal fun PassportRankingScreen(
                         shape = CircleShape
                     )
                     .hazeEffect(
-                        state = hazeState,
+                        state = scrollToTopHazeState,
                         style = mapControlHazeStyle
                     ) {
                         inputScale = HazeInputScale.Auto
