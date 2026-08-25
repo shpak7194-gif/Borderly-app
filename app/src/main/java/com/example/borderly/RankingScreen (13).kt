@@ -92,6 +92,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
@@ -940,6 +942,8 @@ internal fun PassportRankingScreen(
     var searchBottomInWindow by remember { mutableFloatStateOf(0f) }
 
     val rankingListState = rememberLazyListState()
+    // Local backdrop source for the floating Borderly glass button.
+    val scrollToTopHazeState = rememberHazeState()
     val scrollToTopScope = rememberCoroutineScope()
     val density = LocalDensity.current
     val rootView = LocalView.current
@@ -1066,7 +1070,9 @@ internal fun PassportRankingScreen(
     ) {
         LazyColumn(
             state = rankingListState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(state = scrollToTopHazeState),
             contentPadding = PaddingValues(bottom = 132.dp),
             userScrollEnabled = !isStrengthMapInteracting,
             overscrollEffect = null
