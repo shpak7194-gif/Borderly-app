@@ -1034,28 +1034,14 @@ internal fun PassportRankingScreen(
     // same 3.dp glass blur and same low-end fallback.
     val roundControlRimColor = borderlyControlRimColor()
     val roundControlColor = glassControlColor.copy(alpha = if (lowEndDevice) 1f else 0.68f)
-    // Use the same Haze parameters as the bottom navigation itself.
-    // The key detail is that the normal-mode surface must stay transparent
-    // so Haze can actually sample and blur the ranking content underneath.
-    val mapControlHazeStyle = HazeStyle(
-        backgroundColor = MaterialTheme.colorScheme.surface,
-        tint = HazeTint(
-            color = if (darkTheme) {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.34f)
-            } else {
-                Color.White.copy(alpha = 0.34f)
-            }
-        ),
-        blurRadius = 4.dp,
-        noiseFactor = 0f,
-        fallbackTint = HazeTint(
-            if (lowEndDevice) {
-                if (darkTheme) Color(0xFF141A20) else Color(0xFFF1F3F6)
-            } else {
-                borderlyNavigationSurfaceColor()
-            }
-        )
-    )
+    // Exact same glass recipe as the 48.dp map +/- controls.
+val mapControlHazeStyle = HazeStyle(
+    backgroundColor = MaterialTheme.colorScheme.surface,
+    tint = HazeTint(roundControlColor),
+    blurRadius = 3.dp,
+    noiseFactor = 0f,
+    fallbackTint = HazeTint(roundControlColor)
+)
     val glassRimColor = borderlyControlRimColor()
     val mapControlContentColor = borderlyPrimaryContentColor()
 
@@ -1250,14 +1236,6 @@ internal fun PassportRankingScreen(
                     .padding(bottom = 132.dp)
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(
-                        color = if (lowEndDevice) {
-                            if (darkTheme) Color(0xFF141A20) else Color(0xFFF1F3F6)
-                        } else {
-                            Color.Transparent
-                        },
-                        shape = CircleShape
-                    )
                     .hazeEffect(
                         state = scrollToTopHazeState,
                         style = mapControlHazeStyle
