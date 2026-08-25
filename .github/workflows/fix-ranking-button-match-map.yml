@@ -23,69 +23,27 @@ jobs:
           path = Path("app/src/main/java/com/example/borderly/RankingScreen (13).kt")
           text = path.read_text(encoding="utf-8")
 
-          old_style = '''    // Use the same Haze parameters as the bottom navigation itself.
-              // The key detail is that the normal-mode surface must stay transparent
-              // so Haze can actually sample and blur the ranking content underneath.
-              val mapControlHazeStyle = HazeStyle(
-                  backgroundColor = MaterialTheme.colorScheme.surface,
-                  tint = HazeTint(
-                      color = if (darkTheme) {
-                          MaterialTheme.colorScheme.surface.copy(alpha = 0.34f)
-                      } else {
-                          Color.White.copy(alpha = 0.34f)
-                      }
-                  ),
-                  blurRadius = 4.dp,
-                  noiseFactor = 0f,
-                  fallbackTint = HazeTint(
-                      if (lowEndDevice) {
-                          if (darkTheme) Color(0xFF141A20) else Color(0xFFF1F3F6)
-                      } else {
-                          borderlyNavigationSurfaceColor()
-                      }
-                  )
-              )
-          '''.replace("              ", "")
+          style_start_marker = "    // Use the same Haze parameters as the bottom navigation itself."
+          style_end_marker = "    val glassRimColor = borderlyControlRimColor()"
+          style_start = text.index(style_start_marker)
+          style_end = text.index(style_end_marker, style_start)
 
-          new_style = '''    // Exact same glass recipe as the 48.dp map +/- controls.
-              val mapControlHazeStyle = HazeStyle(
-                  backgroundColor = MaterialTheme.colorScheme.surface,
-                  tint = HazeTint(roundControlColor),
-                  blurRadius = 3.dp,
-                  noiseFactor = 0f,
-                  fallbackTint = HazeTint(roundControlColor)
-              )
-          '''.replace("              ", "")
+          new_style = """    // Exact same glass recipe as the 48.dp map +/- controls.
+          val mapControlHazeStyle = HazeStyle(
+              backgroundColor = MaterialTheme.colorScheme.surface,
+              tint = HazeTint(roundControlColor),
+              blurRadius = 3.dp,
+              noiseFactor = 0f,
+              fallbackTint = HazeTint(roundControlColor)
+          )
+          """.replace("          ", "")
 
-          if text.count(old_style) != 1:
-              raise RuntimeError(f"Expected one old Haze style block, found {text.count(old_style)}")
-          text = text.replace(old_style, new_style, 1)
+          text = text[:style_start] + new_style + text[style_end:]
 
-          old_button = '''                    .clip(CircleShape)
-                      .background(
-                          color = if (lowEndDevice) {
-                              if (darkTheme) Color(0xFF141A20) else Color(0xFFF1F3F6)
-                          } else {
-                              Color.Transparent
-                          },
-                          shape = CircleShape
-                      )
-                      .hazeEffect(
-                          state = scrollToTopHazeState,
-                          style = mapControlHazeStyle
-                      ) {
-          '''.replace("                      ", "")
-
-          new_button = '''                    .clip(CircleShape)
-                      .hazeEffect(
-                          state = scrollToTopHazeState,
-                          style = mapControlHazeStyle
-                      ) {
-          '''.replace("                      ", "")
-
-          if text.count(old_button) != 1:
-              raise RuntimeError(f"Expected one old button surface block, found {text.count(old_button)}")
-          text = text.replace(old_button, new_button, 1)
+          button_scope = text.index("        if (showScrollToTop) {")
+          background_start = text.index("                    .background(", button_scope)
+          haze_start = text.index("                    .hazeEffect(", background_start)
+          text = text[:background_start] + text[haze_start:]
 
           path.write_text(text, encoding="utf-8", newline="\n")
 
