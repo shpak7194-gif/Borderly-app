@@ -20,18 +20,8 @@ jobs:
           from pathlib import Path
           path = Path("app/src/main/java/com/example/borderly/RankingScreen (13).kt")
           text = path.read_text(encoding="utf-8")
-          old = """                    .hazeEffect(
-                        state = hazeState,
-                        style = mapControlHazeStyle
-                    ) {
-"""
-          new = """                    .hazeEffect(
-                        state = scrollToTopHazeState,
-                        style = mapControlHazeStyle
-                    ) {
-"""
-          assert text.count(old) == 1
-          text = text.replace(old, new, 1)
+          assert text.count("state = hazeState,") == 1
+          text = text.replace("state = hazeState,", "state = scrollToTopHazeState,", 1)
           path.write_text(text, encoding="utf-8", newline="\n")
       - name: Commit fix
         run: |
