@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "version": 1,
+  "updated": "2026-08-11",
+  "description": "Verified non-visa entry formalities. These records never change the visa category in visa_requirements.json.",
+  "requirements": [
+    {
+      "id": "ru-my-mdac",
+      "passportIso": 643,
+      "destinationIso": 458,
+      "visaTypes": [
+        "visa_free"
+      ],
+      "type": "arrival_card",
+      "title": "Malaysia Digital Arrival Card (MDAC)",
+      "summary": "Перед въездом зарегистрируйте Malaysia Digital Arrival Card (MDAC). Это отдельная въездная форма и не является визой или eTA.",
+      "timing": "В течение 3 дней до прибытия",
+      "mandatory": true,
+      "steps": [
+        "Заполните MDAC на официальном сайте Иммиграционной службы Малайзии.",
+        "Укажите данные паспорта и поездки.",
+        "Сохраните подтверждение регистрации до прохождения пограничного контроля."
+      ],
+      "officialAuthority": "Immigration Department of Malaysia",
+      "sourceUrl": "https://www.imi.gov.my/index.php/en/main-services/entry-requirement-into-malaysia-en/",
+      "verified": "2026-08-11"
+    },
+    {
+      "id": "ru-cn-arrival-card",
+      "passportIso": 643,
+      "destinationIso": 156,
+      "visaTypes": [
+        "visa_free"
+      ],
+      "type": "arrival_card",
+      "title": "Arrival Card",
+      "summary": "Для въезда нужно предоставить данные Arrival Card. Форму можно заполнить онлайн заранее либо оформить по прибытии через доступные официальные каналы.",
+      "timing": "До поездки онлайн или по прибытии",
+      "mandatory": true,
+      "steps": [
+        "При желании заполните Arrival Card заранее через официальный сервис NIA.",
+        "Если не заполняли заранее, предоставьте данные по прибытии через официальный QR-код, терминал или бумажную форму, когда это доступно."
+      ],
+      "officialAuthority": "National Immigration Administration of China",
+      "sourceUrl": "https://en.nia.gov.cn/n147418/n147468/c187308/content.html",
+      "verified": "2026-08-11"
+    },
+    {
+      "id": "ae-ru-ruid",
+      "passportIso": 784,
+      "destinationIso": 643,
+      "visaTypes": [
+        "visa_free"
+      ],
+      "type": "pre_travel_registration",
+      "title": "Заявление о въезде через ruID",
+      "summary": "Для безвизового въезда подайте электронное заявление через ruID. Это дополнительная процедура безвизового въезда, а не eTA/ESTA и не электронная виза.",
+      "timing": "Обычно не позже чем за 72 часа до въезда; при срочном въезде — не позже чем за 4 часа",
+      "mandatory": true,
+      "steps": [
+        "Заполните заявление о планируемом въезде через официальный сервис ruID.",
+        "Подайте его не раньше чем за 90 дней и обычно не позже чем за 72 часа до въезда.",
+        "При срочном въезде применяется сокращённый срок подачи при наличии предусмотренного основания."
+      ],
+      "officialAuthority": "Госуслуги / МВД России",
+      "sourceUrl": "https://www.gosuslugi.ru/help/faq/ruID_app/906631",
+      "verified": "2026-08-11"
+    }
+  ]
+}
