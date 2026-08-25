@@ -1,0 +1,121 @@
+name: Apply ranking scroll glass fix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply Borderly scroll-to-top glass fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/example/borderly/RankingScreen (13).kt")
+          text = path.read_text(encoding="utf-8")
+          marker = "internal fun PassportRankingScreen("
+          function_start = text.index(marker)
+          prefix = text[:function_start]
+          body = text[function_start:]
+
+          # Add the local Haze source imports once.
+          import_anchor = "import dev.chrisbanes.haze.hazeEffect\n"
+          if "import dev.chrisbanes.haze.hazeSource\n" not in prefix:
+              assert prefix.count(import_anchor) == 1
+              prefix = prefix.replace(
+                  import_anchor,
+                  import_anchor
+                  + "import dev.chrisbanes.haze.hazeSource\n"
+                  + "import dev.chrisbanes.haze.rememberHazeState\n",
+                  1,
+              )
+
+          state_anchor = "    val rankingListState = rememberLazyListState()\n"
+          assert body.count(state_anchor) == 1
+          body = body.replace(
+              state_anchor,
+              state_anchor
+              + "    // Dedicated source for the floating scroll-to-top glass. The button is a\n"
+              + "    // sibling of the list, so Haze samples the ranking content behind it.\n"
+              + "    val scrollToTopHazeState = rememberHazeState()\n",
+              1,
+          )
+
+          style_start = body.index(
+              "    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f\n"
+          )
+          style_end = body.index("    val showScrollToTop =", style_start)
+          new_style = '''    val glassControlColor = borderlyControlSurfaceColor()
+              val lowEndDevice = LocalBorderlyLowEndMode.current
+              // Exact 48.dp round-control visual language from the map +/- controls,
+              // with the same 4.dp backdrop blur used by the bottom navigation.
+              val roundControlRimColor = borderlyControlRimColor()
+              val roundControlColor = glassControlColor.copy(
+                  alpha = if (lowEndDevice) 1f else 0.68f
+              )
+              val scrollToTopHazeStyle = HazeStyle(
+                  backgroundColor = MaterialTheme.colorScheme.surface,
+                  tint = HazeTint(roundControlColor),
+                  blurRadius = 4.dp,
+                  noiseFactor = 0f,
+                  fallbackTint = HazeTint(roundControlColor)
+              )
+              val glassRimColor = borderlyControlRimColor()
+              val mapControlContentColor = borderlyPrimaryContentColor()
+
+          '''.replace("              ", "")
+          body = body[:style_start] + new_style + body[style_end:]
+
+          list_old = '''            modifier = Modifier.fillMaxSize(),
+              contentPadding = PaddingValues(bottom = 132.dp),'''.replace("              ", "")
+          list_new = '''            modifier = Modifier
+                  .fillMaxSize()
+                  .hazeSource(state = scrollToTopHazeState),
+              contentPadding = PaddingValues(bottom = 132.dp),'''.replace("              ", "")
+          assert body.count(list_old) == 1
+          body = body.replace(list_old, list_new, 1)
+
+          button_old = '''                    .clip(CircleShape)
+                      .background(
+                          color = if (lowEndDevice) {
+                              if (darkTheme) Color(0xFF141A20) else Color(0xFFF1F3F6)
+                          } else {
+                              Color.Transparent
+                          },
+                          shape = CircleShape
+                      )
+                      .hazeEffect(
+                          state = hazeState,
+                          style = mapControlHazeStyle
+                      ) {'''.replace("                      ", "")
+          button_new = '''                    .clip(CircleShape)
+                      .hazeEffect(
+                          state = scrollToTopHazeState,
+                          style = scrollToTopHazeStyle
+                      ) {'''.replace("                      ", "")
+          assert body.count(button_old) == 1
+          body = body.replace(button_old, button_new, 1)
+
+          path.write_text(prefix + body, encoding="utf-8", newline="\n")
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "app/src/main/java/com/example/borderly/RankingScreen (13).kt"
+          git commit -m "Fix ranking scroll-to-top glass"
+          git push
