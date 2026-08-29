@@ -3,6 +3,7 @@ package com.example.borderly
 import android.app.ActivityManager
 import android.content.Context
 import java.text.DateFormat
+import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -21,10 +22,13 @@ internal fun formatDataDateForUi(
     raw: String,
     locale: Locale = Locale.getDefault()
 ): String {
-    val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).run {
+    val parser = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
         isLenient = false
-        parse(raw)?.takeIf { format(it) == raw }
-    } ?: return raw
+    }
+    val position = ParsePosition(0)
+    val parsed = parser.parse(raw, position)
+        ?.takeIf { position.index == raw.length && parser.format(it) == raw }
+        ?: return raw
 
     return DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(parsed)
 }
