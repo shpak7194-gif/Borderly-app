@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <!-- Preserve user choices, but never back up replaceable downloaded data. -->
-    <include domain="sharedpref" path="borderly_preferences.xml" />
-    <include domain="sharedpref" path="borderly_theme_preferences.xml" />
-    <include domain="sharedpref" path="borderly_language_preferences.xml" />
-</full-backup-content>
