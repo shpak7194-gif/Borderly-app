@@ -1,50 +1,25 @@
 package com.example.borderly
 
-// BORDERLY_BOTTOM_NAV_LABEL_WEIGHT_MEDIUM_SEMIBOLD_2026_08_19
-
-// BORDERLY_BOTTOM_NAV_LIGHT_SHADOW_ALPHA_008_2026_08_19
-
-// BORDERLY_BOTTOM_NAV_LIGHT_SHADOW_ALPHA_014_2026_08_19
-
-// BORDERLY_BOTTOM_NAV_REAL_BLURRED_HALO_V5_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_SHADOW_UNCLIPPED_V4_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_VISIBLE_SOFT_SHADOW_V3_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_SUBTLE_SOFT_SHADOW_V2_2026_08_18
-
-// BORDERLY_SETTINGS_SELECTED_INSET_MATCH_TABS_4DP_2026_08_18
-
-// BORDERLY_SETTINGS_SELECTED_GLASS_SAME_AS_TABS_2026_08_18
-
-// BORDERLY_SELECTED_TAB_GLASS_LAYER_BDBDBD_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_LIGHT_SURFACE_F4_BLUR_3DP_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_HAZE_BLUR_14DP_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_HAZE_GLASS_18DP_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_RESTORE_CAPSULE_SHAPE_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_MATCH_REGION_CARD_DESIGN_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_TRANSPARENT_BACKGROUND_2026_08_18
-
-// BORDERLY_CAPSULE_NAV_WITH_SETTINGS_CIRCLE_2026_08_18
-
-// BORDERLY_BOTTOM_NAV_SETTINGS_FOURTH_2026_08_18
-
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,8 +27,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,7 +43,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -86,6 +67,14 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -97,6 +86,7 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 @Composable
 internal fun BottomNavigation(
@@ -174,35 +164,189 @@ internal fun BottomNavigation(
     // A Surface clips child rendering to its own bounds, which made the
     // outer navigation shadows effectively invisible. Box does not clip,
     // so the soft shadow can render outside the capsule/circle.
-    Box(
-        modifier = Modifier.fillMaxWidth()
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(
+                start = 10.dp,
+                top = 8.dp,
+                end = 10.dp,
+                bottom = 8.dp
+            )
+            .height(68.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(
-                    start = 10.dp,
-                    top = 8.dp,
-                    end = 10.dp,
-                    bottom = 8.dp
+        val settingsSize = 68.dp
+        val controlGap = 10.dp
+        val selectedInset = 4.dp
+        val selectedHeight = 60.dp
+        val capsuleWidth = (maxWidth - settingsSize - controlGap).coerceAtLeast(0.dp)
+        val capsuleInnerWidth = (capsuleWidth - selectedInset * 2).coerceAtLeast(0.dp)
+        val segmentWidth = capsuleInnerWidth / 3f
+        val density = LocalDensity.current
+        val capsuleTabs = remember {
+            listOf(AppTab.MAP, AppTab.COMPARE, AppTab.RANKING)
+        }
+        val selectedCapsuleIndex = when (selectedTab) {
+            AppTab.MAP -> 0
+            AppTab.COMPARE -> 1
+            AppTab.RANKING -> 2
+            AppTab.SETTINGS -> null
+        }
+        val dragStartIndex = selectedCapsuleIndex ?: 0
+        var isIndicatorDragging by remember { mutableStateOf(false) }
+        var draggedIndicatorX by remember { mutableStateOf(selectedInset) }
+        var pendingDraggedTab by remember { mutableStateOf<AppTab?>(null) }
+
+        // Settings uses a separate selected layer. While it is active, the
+        // capsule indicator rests invisibly at Ranking, so returning from
+        // Settings always starts at the capsule's right edge.
+        val indicatorTargetX = when (selectedTab) {
+            AppTab.MAP -> selectedInset
+            AppTab.COMPARE -> selectedInset + segmentWidth
+            AppTab.RANKING -> selectedInset + segmentWidth * 2
+            AppTab.SETTINGS -> selectedInset + segmentWidth * 2
+        }
+        val pendingIndicatorTargetX = when (pendingDraggedTab) {
+            AppTab.MAP -> selectedInset
+            AppTab.COMPARE -> selectedInset + segmentWidth
+            AppTab.RANKING -> selectedInset + segmentWidth * 2
+            else -> null
+        }
+        val displayedIndicatorTargetX = when {
+            isIndicatorDragging -> draggedIndicatorX
+            pendingIndicatorTargetX != null -> pendingIndicatorTargetX
+            else -> indicatorTargetX
+        }
+        val indicatorX by animateDpAsState(
+            targetValue = displayedIndicatorTargetX,
+            animationSpec = if (isIndicatorDragging) {
+                snap()
+            } else {
+                spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
                 )
-                .height(68.dp),
+            },
+            label = "navigationIndicatorX"
+        )
+        val draggedCapsuleIndex = if (isIndicatorDragging && segmentWidth > 0.dp) {
+            ((draggedIndicatorX - selectedInset).value / segmentWidth.value)
+                .roundToInt()
+                .coerceIn(0, capsuleTabs.lastIndex)
+        } else {
+            null
+        }
+        val visuallySelectedTab = draggedCapsuleIndex
+            ?.let(capsuleTabs::get)
+            ?: pendingDraggedTab
+            ?: selectedTab
+        LaunchedEffect(selectedTab, pendingDraggedTab) {
+            if (pendingDraggedTab == selectedTab) {
+                pendingDraggedTab = null
+            }
+        }
+        val settingsIconTint by animateColorAsState(
+            targetValue = if (visuallySelectedTab == AppTab.SETTINGS) {
+                navigationContentColor
+            } else {
+                navigationSecondaryContentColor
+            },
+            animationSpec = tween(200, easing = BorderlyStrongEaseOut),
+            label = "settingsIconTint"
+        )
+        val capsuleIndicatorAlpha by animateFloatAsState(
+            targetValue = if (selectedTab == AppTab.SETTINGS) 0f else 1f,
+            animationSpec = if (selectedTab == AppTab.SETTINGS) {
+                tween(
+                    durationMillis = 140,
+                    delayMillis = 110,
+                    easing = BorderlyStrongEaseOut
+                )
+            } else {
+                tween(durationMillis = 160, easing = BorderlyStrongEaseOut)
+            },
+            label = "capsuleIndicatorAlpha"
+        )
+        val settingsIndicatorAlpha by animateFloatAsState(
+            targetValue = if (selectedTab == AppTab.SETTINGS) 1f else 0f,
+            animationSpec = if (selectedTab == AppTab.SETTINGS) {
+                tween(
+                    durationMillis = 170,
+                    delayMillis = 110,
+                    easing = BorderlyStrongEaseOut
+                )
+            } else {
+                tween(durationMillis = 120, easing = BorderlyStrongEaseOut)
+            },
+            label = "settingsIndicatorAlpha"
+        )
+        val settingsIndicatorScale by animateFloatAsState(
+            targetValue = if (selectedTab == AppTab.SETTINGS) 1f else 0.92f,
+            animationSpec = tween(
+                durationMillis = 180,
+                delayMillis = if (selectedTab == AppTab.SETTINGS) 90 else 0,
+                easing = BorderlyStrongEaseOut
+            ),
+            label = "settingsIndicatorScale"
+        )
+        val capsuleDragModifier = if (selectedCapsuleIndex != null && segmentWidth > 0.dp) {
+            Modifier.pointerInput(
+                selectedCapsuleIndex,
+                selectedInset,
+                segmentWidth,
+                density
+            ) {
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        pendingDraggedTab = null
+                        draggedIndicatorX = selectedInset + segmentWidth * dragStartIndex
+                        isIndicatorDragging = true
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        val dragAmountDp = with(density) { dragAmount.toDp() }
+                        val rankingStopX = selectedInset + segmentWidth * capsuleTabs.lastIndex
+                        draggedIndicatorX = (draggedIndicatorX + dragAmountDp)
+                            .coerceIn(selectedInset, rankingStopX)
+                    },
+                    onDragEnd = {
+                        val targetIndex = if (segmentWidth > 0.dp) {
+                            ((draggedIndicatorX - selectedInset).value / segmentWidth.value)
+                                .roundToInt()
+                                .coerceIn(0, capsuleTabs.lastIndex)
+                        } else {
+                            dragStartIndex
+                        }
+                        val targetTab = capsuleTabs[targetIndex]
+                        pendingDraggedTab = targetTab
+                        isIndicatorDragging = false
+                        onTabClick(targetTab)
+                    },
+                    onDragCancel = {
+                        pendingDraggedTab = null
+                        isIndicatorDragging = false
+                    }
+                )
+            }
+        } else {
+            Modifier
+        }
+
+        // Base glass surfaces and their shadows.
+        Row(
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(controlGap)
         ) {
-            // Карта + Сравнение + Рейтинг находятся в одной общей капсуле.
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .width(capsuleWidth)
                     .fillMaxHeight()
                     .borderlyNavigationRim(
                         rimColor = navigationRimColor,
                         cornerRadius = 34.dp
                     )
             ) {
-                // Real soft halo behind the capsule. Unlike elevation shadow,
-                // this is a blurred shape and remains visible on the pale UI background.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -219,7 +363,6 @@ internal fun BottomNavigation(
                             shape = RoundedCornerShape(34.dp)
                         )
                 )
-
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
@@ -235,56 +378,16 @@ internal fun BottomNavigation(
                     shape = RoundedCornerShape(34.dp),
                     border = null,
                     shadowElevation = 0.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        NavigationItem(
-                            label = "Карта",
-                            icon = Icons.Outlined.Map,
-                            selected = selectedTab == AppTab.MAP,
-                            hazeState = hazeState,
-                            selectedHazeStyle = selectedTabHazeStyle,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onTabClick(AppTab.MAP) }
-                        )
-                        NavigationItem(
-                            label = "Сравнение",
-                            icon = Icons.Outlined.Balance,
-                            selected = selectedTab == AppTab.COMPARE,
-                            hazeState = hazeState,
-                            selectedHazeStyle = selectedTabHazeStyle,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onTabClick(AppTab.COMPARE) }
-                        )
-                        NavigationItem(
-                            label = "Рейтинг",
-                            icon = Icons.Outlined.EmojiEvents,
-                            selected = selectedTab == AppTab.RANKING,
-                            hazeState = hazeState,
-                            selectedHazeStyle = selectedTabHazeStyle,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onTabClick(AppTab.RANKING) }
-                        )
-                    }
-                }
+                ) {}
             }
 
-            // Настройки — отдельная круглая кнопка без подписи.
-            // Базовое стекло остаётся как раньше, а при выборе сверху
-            // накладывается тот же selected glass layer, что у Карта/Сравнение/Рейтинг.
             Box(
                 modifier = Modifier
-                    .size(68.dp)
+                    .size(settingsSize)
                     .borderlyNavigationRim(
                         rimColor = navigationRimColor,
                         cornerRadius = 34.dp
                     )
-                    .noRippleClick { onTabClick(AppTab.SETTINGS) },
-                contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
@@ -302,7 +405,6 @@ internal fun BottomNavigation(
                             shape = CircleShape
                         )
                 )
-
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
@@ -319,37 +421,115 @@ internal fun BottomNavigation(
                     border = null,
                     shadowElevation = 0.dp
                 ) {}
+            }
+        }
 
-                if (selectedTab == AppTab.SETTINGS) {
-                    Box(
-                        modifier = Modifier
-                            // Same 4dp inset as the selected oval inside
-                            // the main navigation capsule.
-                            .size(60.dp)
-                            .zIndex(1f)
-                            .clip(CircleShape)
-                            .background(if (lowEndDevice) selectedNavigationSurface else Color.Transparent)
-                            .hazeEffect(
-                                state = hazeState,
-                                style = selectedTabHazeStyle
-                            ) {
-                                inputScale = HazeInputScale.Auto
-                                blurEnabled = !lowEndDevice
-                            }
-                    )
+        // The main selected layer never leaves the capsule. When Settings is
+        // opened, it moves only as far as Ranking and fades at the right edge.
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorX, y = selectedInset)
+                .width(segmentWidth)
+                .height(selectedHeight)
+                .zIndex(1f)
+                .graphicsLayer { alpha = capsuleIndicatorAlpha }
+                .clip(RoundedCornerShape(30.dp))
+                .background(
+                    if (lowEndDevice) selectedNavigationSurface else Color.Transparent
+                )
+                .hazeEffect(
+                    state = hazeState,
+                    style = selectedTabHazeStyle
+                ) {
+                    inputScale = HazeInputScale.Auto
+                    blurEnabled = !lowEndDevice
                 }
+        )
 
+        // Settings owns a separate circular selected layer. The empty gap
+        // between the capsule and this button therefore always stays empty.
+        Box(
+            modifier = Modifier
+                .offset(
+                    x = capsuleWidth + controlGap + selectedInset,
+                    y = selectedInset
+                )
+                .size(selectedHeight)
+                .zIndex(1f)
+                .graphicsLayer {
+                    alpha = settingsIndicatorAlpha
+                    scaleX = settingsIndicatorScale
+                    scaleY = settingsIndicatorScale
+                }
+                .clip(CircleShape)
+                .background(
+                    if (lowEndDevice) selectedNavigationSurface else Color.Transparent
+                )
+                .hazeEffect(
+                    state = hazeState,
+                    style = selectedTabHazeStyle
+                ) {
+                    inputScale = HazeInputScale.Auto
+                    blurEnabled = !lowEndDevice
+                }
+        )
+
+        // Interactive content is a separate top layer so the moving glass
+        // indicator never covers the icons or labels.
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .width(capsuleWidth)
+                    .fillMaxHeight()
+                    .then(capsuleDragModifier)
+                    .padding(selectedInset)
+            ) {
+                NavigationItem(
+                    label = stringResource(R.string.nav_map),
+                    icon = Icons.Outlined.Map,
+                    selected = visuallySelectedTab == AppTab.MAP,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onTabClick(AppTab.MAP) }
+                )
+                NavigationItem(
+                    label = stringResource(R.string.nav_compare),
+                    icon = Icons.Outlined.Balance,
+                    selected = visuallySelectedTab == AppTab.COMPARE,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onTabClick(AppTab.COMPARE) }
+                )
+                NavigationItem(
+                    label = stringResource(R.string.nav_ranking),
+                    icon = Icons.Outlined.EmojiEvents,
+                    selected = visuallySelectedTab == AppTab.RANKING,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onTabClick(AppTab.RANKING) }
+                )
+            }
+
+            val settingsLabel = stringResource(R.string.nav_settings)
+            Box(
+                modifier = Modifier
+                    .padding(start = controlGap)
+                    .size(settingsSize)
+                    .borderlyPressable { onTabClick(AppTab.SETTINGS) }
+                    .semantics {
+                        role = Role.Tab
+                        selected = visuallySelectedTab == AppTab.SETTINGS
+                        contentDescription = settingsLabel
+                    },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
-                    contentDescription = "Настройки",
-                    modifier = Modifier
-                        .size(28.dp)
-                        .zIndex(2f),
-                    tint = if (selectedTab == AppTab.SETTINGS) {
-                        navigationContentColor
-                    } else {
-                        navigationSecondaryContentColor
-                    }
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = settingsIconTint
                 )
             }
         }
@@ -361,39 +541,29 @@ internal fun NavigationItem(
     label: String,
     icon: ImageVector,
     selected: Boolean,
-    hazeState: HazeState,
-    selectedHazeStyle: HazeStyle,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val selectedShape = RoundedCornerShape(30.dp)
-    val lowEndDevice = LocalBorderlyLowEndMode.current
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val selectedFallbackColor = if (darkTheme) Color(0xFF36414B) else Color(0xFFDCE0E5)
     val contentColor = if (darkTheme) Color(0xFFF8FAFC) else Color(0xFF1E2A36)
     val secondaryContentColor = if (darkTheme) Color(0xFFAAB4BE) else Color(0xFF5E6975)
+
+    // Иконка и подпись плавно перетекают в выбранные цвета вслед за
+    // скользящей стеклянной таблеткой.
+    val itemContentColor by animateColorAsState(
+        targetValue = if (selected) contentColor else secondaryContentColor,
+        animationSpec = tween(200, easing = BorderlyStrongEaseOut),
+        label = "navigationItemColor"
+    )
 
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .zIndex(if (selected) 1f else 0f)
-            .then(
-                if (selected) {
-                    Modifier
-                        .clip(selectedShape)
-                        .background(if (lowEndDevice) selectedFallbackColor else Color.Transparent)
-                        .hazeEffect(
-                            state = hazeState,
-                            style = selectedHazeStyle
-                        ) {
-                            inputScale = HazeInputScale.Auto
-                            blurEnabled = !lowEndDevice
-                        }
-                } else {
-                    Modifier
-                }
-            )
-            .noRippleClick(onClick),
+            .borderlyPressable(onClick)
+            .semantics {
+                role = Role.Tab
+                this.selected = selected
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -402,23 +572,15 @@ internal fun NavigationItem(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
+                contentDescription = null,
                 modifier = Modifier.size(25.dp),
-                tint = if (selected) {
-                    contentColor
-                } else {
-                    secondaryContentColor
-                }
+                tint = itemContentColor
             )
 
             Text(
                 text = label,
                 modifier = Modifier.padding(top = 3.dp),
-                color = if (selected) {
-                    contentColor
-                } else {
-                    secondaryContentColor
-                },
+                color = itemContentColor,
                 fontSize = 11.sp,
                 fontWeight = if (selected) {
                     FontWeight.SemiBold
@@ -430,7 +592,6 @@ internal fun NavigationItem(
         }
     }
 }
-
 
 private fun Modifier.borderlyNavigationRim(
     rimColor: Color,
@@ -686,4 +847,48 @@ internal fun Modifier.noRippleClick(onClick: () -> Unit): Modifier = composed {
         indication = null,
         onClick = onClick
     )
+}
+
+// Strong ease-out for interface feedback: starts fast, lands soft.
+// Mirrors cubic-bezier(0.23, 1, 0.32, 1) from Emil Kowalski's design skill.
+internal val BorderlyStrongEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+
+/**
+ * Press feedback driven by an already-created interaction source: the
+ * control scales down to ~0.97 while the finger is down and eases back out.
+ * Transform-only, so it stays enabled even on low-end devices.
+ */
+@Composable
+internal fun rememberBorderlyPressScale(
+    interactionSource: MutableInteractionSource,
+    pressedScale: Float = 0.97f
+): Float {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = tween(120, easing = BorderlyStrongEaseOut),
+        label = "borderlyPressScale"
+    )
+    return scale
+}
+
+/**
+ * Clickable without ripple plus the "button must feel responsive" press
+ * feedback: a subtle 0.97 scale that springs down in ~120ms and eases back
+ * out. Transform-only, so it stays enabled even on low-end devices.
+ */
+@Composable
+internal fun Modifier.borderlyPressable(onClick: () -> Unit): Modifier {
+    val interactionSource = remember { MutableInteractionSource() }
+    val scale = rememberBorderlyPressScale(interactionSource)
+    return this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
 }

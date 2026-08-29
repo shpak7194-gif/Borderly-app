@@ -10,3 +10,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+/borderly app2/
+*.zip

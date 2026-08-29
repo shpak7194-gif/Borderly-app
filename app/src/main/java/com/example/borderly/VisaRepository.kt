@@ -92,7 +92,10 @@ internal fun parseVisaDatabase(
     )
     val databaseSource = root.optString("source", "Borderly Visa Data")
     val databaseSourceUrl = root.optString("sourceUrl").takeIf { it.isNotBlank() }
-    val databaseUpdated = root.optString("updated", "не указано")
+    val databaseUpdated = root.optString("updated").trim()
+    require(databaseUpdated.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+        "visa_requirements.json: invalid updated date"
+    }
     val sources = parseVisaSources(root, embeddedVersion)
     val destinationSourceIds = parseDestinationSourceIds(
         root = root,
@@ -665,5 +668,4 @@ internal suspend fun checkForVisaDatabaseUpdate(
         )
     }
 }
-
 

@@ -1,76 +1,5 @@
 package com.example.borderly
 
-// BORDERLY_HIDE_ZERO_ENTRY_RESTRICTED_STAT_2026_08_19
-
-// BORDERLY_REGION_MAP_MODE_2026_08_19
-
-// BORDERLY_STATS_DEFAULT_EXPANDED_2026_08_18
-
-// BORDERLY_MAP_STATS_GAP_MATCH_HEADER_MAP_GAP_2026_08_18
-
-// BORDERLY_MAP_OVERLAY_GLASS_BLUR_3DP_2026_08_18
-
-// BORDERLY_REGION_CARD_COLOR_MATCH_STATS_2026_08_18
-
-// BORDERLY_REGION_CARDS_SHARED_OUTER_RIM_2026_08_18
-
-// BORDERLY_EXPANDED_STATS_EXPLICIT_OUTER_RIM_2026_08_18
-
-// BORDERLY_STATS_RIM_OVERLAYS_NO_CONTENT_CLIP_2026_08_18
-
-// BORDERLY_STATISTICS_TOP_RIM_ONLY_2026_08_17
-
-// BORDERLY_STATISTICS_BOTTOM_RIM_ONLY_2026_08_17
-
-// BORDERLY_FIXED_MAP_STATIC_STATS_CARD_2026_08_17
-
-// BORDERLY_PASSPORT_STATS_HEADER_MATCHES_SEARCH_2026_08_17
-
-// BORDERLY_FILTERS_USE_SHARED_HEADER_PILL_RIM_2026_08_17
-
-// BORDERLY_SEARCH_PILL_STYLE_MATCH_FILTERS_2026_08_17
-
-// BORDERLY_FILTER_RIM_TRAJECTORY_SHIFTED_2026_08_17
-
-// BORDERLY_FILTER_RIM_FADE_BOTH_ENDS_2026_08_17
-
-// BORDERLY_ADAPTIVE_FILTER_RIM_BY_PERIMETER_2026_08_17
-
-// BORDERLY_LIGHT_RIM_BRIGHTER_DARK_UNCHANGED_2026_08_17
-
-// BORDERLY_KEEP_SOLID_EXTEND_FADE_ONLY_2026_08_17
-
-// BORDERLY_CONTINUOUS_GRADIENT_RIM_2026_08_17
-
-// BORDERLY_LONG_FADE_ARC_ENDS_2026_08_17
-
-// BORDERLY_FADED_ARC_ENDS_2026_08_17
-
-// BORDERLY_ASYMMETRIC_ARC_RIM_CONTROLS_2026_08_17
-
-// BORDERLY_DARK_THEME_COMPAT_NO_LOCAL_PROVIDER_2026_08_17
-
-// BORDERLY_ROUND_MAP_CONTROLS_BUILD_COMPAT_2026_08_17
-
-// BORDERLY_HOME_POLISH_V1_THEME_COLLAPSIBLE_LEGEND_2026_08_16
-
-// BORDERLY_MAP_OVERLAY_EQUAL_SPACING_V1_2026_08_16
-
-// BORDERLY_BUILD_FIX_REGION_ACCESS_NATIVE_MAP_V8_2026_08_16
-// BORDERLY_SEARCH_HEIGHT_MATCHES_FILTER_RUNTIME_V1_2026_08_16
-
-// BORDERLY_REGION_CARDS_MINIMAL_GLOBES_V8_ACTIVE_FILE_BUILD_FIX_2026_08_16
-
-// BORDERLY_REGION_CARDS_SCALE_V3_AFRICA_OCEANIA_2026_08_15
-
-// BORDERLY_REGION_CARDS_CONTINENT_WATERMARK_V2_SAFE_REGION_LOOKUP_2026_08_15
-// BORDERLY_MAP_FILTERS_OVER_MAP_V11_FROM_LATEST_FULLSCREEN_BASE_2026_08_15
-// BORDERLY_MAP_FILTERS_LOWER_V12_2026_08_15
-// BORDERLY_MAP_POLISH_V13_LEGEND_TOP_SHADOW_FILTER_GLASS_2026_08_15
-// BORDERLY_MAP_BUTTON_ZOOM_V10_FULLSCREEN_CONTROLS_1_60_210MS_2026_08_15
-
-// BORDERLY_MAP_CONTROLS_FIX_NO_WHITE_SQUARE_2026_08_15
-
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
@@ -80,9 +9,14 @@ import android.graphics.Region
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -91,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -113,7 +48,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
@@ -138,6 +72,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -146,6 +81,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
@@ -158,8 +94,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -448,7 +390,6 @@ internal fun clampNativeMapPan(
     )
 }
 
-
 // Small countries and island states that are difficult to hit with a finger at
 // the initial world view. Their dots are only a visual/touch aid; geography is
 // still taken from the real polygon data.
@@ -609,7 +550,7 @@ internal fun InteractiveWorldMap(
                 contentScale = ContentScale.FillBounds
             )
             Text(
-                text = "Не найден файл интерактивной карты",
+                text = stringResource(R.string.interactive_map_missing),
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = .94f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 7.dp),
@@ -1075,10 +1016,22 @@ internal fun MapCard(
         val filtersLowerOffset = if (compact) 46.dp else 54.dp
         val mapHeight = (maxWidth / mapAspectRatio) + filtersLowerOffset
         val legendHorizontalPadding = if (compact) 12.dp else 20.dp
-        val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-        val selectedRegionSuffix = selectedRegion?.title?.let { " · $it" }.orEmpty()
-        val destinationSearchLabel = "Поиск страны$selectedRegionSuffix"
-        val passportStatisticsLabel = "Статистика паспорта$selectedRegionSuffix"
+        val darkTheme = borderlyIsDarkTheme()
+        val openFullscreenMapDescription = stringResource(R.string.open_fullscreen_map)
+        val zoomInDescription = stringResource(R.string.zoom_in)
+        val zoomOutDescription = stringResource(R.string.zoom_out)
+        val selectedRegionSuffix = selectedRegion
+            ?.localizedTitle()
+            ?.let { " · $it" }
+            .orEmpty()
+        val destinationSearchLabel = stringResource(
+            R.string.search_country_with_region,
+            selectedRegionSuffix
+        )
+        val passportStatisticsLabel = stringResource(
+            R.string.passport_statistics_with_region,
+            selectedRegionSuffix
+        )
         val mapBackground = if (darkTheme) Color(0xFF111B23) else Color(0xFFEEF5FA)
         var zoomInRequest by remember { mutableStateOf(0) }
         var zoomOutRequest by remember { mutableStateOf(0) }
@@ -1089,9 +1042,8 @@ internal fun MapCard(
         val lowEndDevice = LocalBorderlyLowEndMode.current
 
         val mapControlColor = borderlyControlSurfaceColor()
-        val mapControlContentColor = MaterialTheme.colorScheme.onSurface
+        val mapControlContentColor = borderlyPrimaryContentColor()
         val mapControlSecondaryContentColor = borderlySecondaryContentColor()
-        val mapControlShapeRadius = 18.dp
         val mapControlBorderColor = borderlyControlRimColor()
 
         val roundControlRimColor = mapControlBorderColor
@@ -1192,6 +1144,11 @@ internal fun MapCard(
                     val expandInteractionSource = remember { MutableInteractionSource() }
                     val zoomInInteractionSource = remember { MutableInteractionSource() }
                     val zoomOutInteractionSource = remember { MutableInteractionSource() }
+                    // Press-down feedback: floating controls must feel alive
+                    // the instant the finger lands, not after the tap ends.
+                    val expandPressScale = rememberBorderlyPressScale(expandInteractionSource)
+                    val zoomInPressScale = rememberBorderlyPressScale(zoomInInteractionSource)
+                    val zoomOutPressScale = rememberBorderlyPressScale(zoomOutInteractionSource)
 
                     // Search now floats directly over the map, using the same translucent
                     // surface treatment as the map controls while keeping its pill shape.
@@ -1218,7 +1175,7 @@ internal fun MapCard(
                                 inputScale = HazeInputScale.Auto
                                 blurEnabled = !lowEndDevice
                             }
-                            .noRippleClick(onDestinationClick),
+                            .borderlyPressable(onDestinationClick),
                         color = Color.Transparent,
                         shape = RoundedCornerShape(50),
                         border = null
@@ -1242,7 +1199,7 @@ internal fun MapCard(
                             )
                             Icon(
                                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Открыть список стран",
+                                contentDescription = stringResource(R.string.open_country_list),
                                 modifier = Modifier.size(20.dp),
                                 tint = mapControlSecondaryContentColor
                             )
@@ -1352,6 +1309,14 @@ internal fun MapCard(
 
                                 drawFadedRimArc(185f)
                                 drawFadedRimArc(5f)
+                            }
+                            .graphicsLayer {
+                                scaleX = expandPressScale
+                                scaleY = expandPressScale
+                            }
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = openFullscreenMapDescription
                             }
                             .clickable(
                                 interactionSource = expandInteractionSource,
@@ -1474,6 +1439,14 @@ internal fun MapCard(
                                     drawFadedRimArc(185f)
                                     drawFadedRimArc(5f)
                                 }
+                                .graphicsLayer {
+                                    scaleX = zoomInPressScale
+                                    scaleY = zoomInPressScale
+                                }
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = zoomInDescription
+                                }
                                 .clickable(
                                     interactionSource = zoomInInteractionSource,
                                     indication = null
@@ -1594,6 +1567,14 @@ internal fun MapCard(
                                     drawFadedRimArc(185f)
                                     drawFadedRimArc(5f)
                                 }
+                                .graphicsLayer {
+                                    scaleX = zoomOutPressScale
+                                    scaleY = zoomOutPressScale
+                                }
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = zoomOutDescription
+                                }
                                 .clickable(
                                     interactionSource = zoomOutInteractionSource,
                                     indication = null
@@ -1617,29 +1598,34 @@ internal fun MapCard(
 
             Spacer(modifier = Modifier.height(if (compact) 13.dp else 17.dp))
 
-            // Collapsed: one pill exactly like the search field.
-            // Expanded: the header keeps the same pill rim, while the body
-            // opens below inside the same card. This avoids the effect where
-            // the rim and the card seem to expand separately.
-            if (!legendExpanded) {
-                Surface(
-                    modifier = Modifier
-                        .padding(horizontal = MapOverlaySpacing)
-                        .fillMaxWidth()
-                        .height(searchHeight)
-                        .borderlyAdaptivePillRim(
-                            rimColor = roundControlRimColor,
-                            solidFraction = 0.13f,
-                            fadeFraction = 0.19f
-                        )
-                        .noRippleClick { legendExpanded = true },
-                    color = roundControlColor,
-                    shape = RoundedCornerShape(50),
-                    border = null
-                ) {
+            // Keep the existing open and closed shapes, but use the same
+            // simple disclosure algorithm as the passport-documents card.
+            val legendRadius = if (legendExpanded) 26.dp else 50.dp
+            val legendArrowRotation by animateFloatAsState(
+                targetValue = if (legendExpanded) 180f else 0f,
+                animationSpec = tween(durationMillis = 180),
+                label = "legendArrow"
+            )
+
+            Surface(
+                modifier = Modifier
+                    .padding(horizontal = MapOverlaySpacing)
+                    .fillMaxWidth()
+                    // The existing rim follows the current open/closed radius.
+                    .borderlyRoundedRectRim(
+                        rimColor = roundControlRimColor,
+                        cornerRadius = legendRadius
+                    )
+                    .borderlyPressable { legendExpanded = !legendExpanded },
+                color = roundControlColor,
+                shape = RoundedCornerShape(legendRadius),
+                border = null
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .height(searchHeight)
                             .padding(horizontal = 15.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1648,7 +1634,7 @@ internal fun MapCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(start = 2.dp),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = borderlyPrimaryContentColor(),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Normal,
                             maxLines = 1,
@@ -1657,76 +1643,32 @@ internal fun MapCard(
 
                         Icon(
                             imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "Развернуть статистику",
-                            modifier = Modifier.size(20.dp),
+                            contentDescription = if (legendExpanded) {
+                                stringResource(R.string.collapse_statistics)
+                            } else {
+                                stringResource(R.string.expand_statistics)
+                            },
+                            modifier = Modifier
+                                .size(20.dp)
+                                .rotate(legendArrowRotation),
                             tint = mapControlSecondaryContentColor
                         )
                     }
-                }
-            } else {
-                Surface(
-                    modifier = Modifier
-                        .padding(horizontal = MapOverlaySpacing)
-                        .fillMaxWidth()
-                        .animateContentSize()
-                        .borderlyRoundedRectRim(
-                            rimColor = roundControlRimColor,
-                            cornerRadius = 26.dp
+
+                    if (legendExpanded) {
+                        VisaLegendGrid(
+                            passportName = passport.localizedName(),
+                            visaCounts = visaCounts,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = legendHorizontalPadding,
+                                    top = if (compact) 13.dp else 15.dp,
+                                    end = legendHorizontalPadding,
+                                    bottom = if (compact) 26.dp else 28.dp
+                                ),
+                            compact = compact
                         )
-                        .noRippleClick { legendExpanded = false },
-                    color = roundControlColor,
-                    shape = RoundedCornerShape(26.dp),
-                    border = null
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Real content is drawn WITHOUT any clipping.
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(searchHeight)
-                                    .padding(horizontal = 15.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = passportStatisticsLabel,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 2.dp),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowUp,
-                                    contentDescription = "Свернуть статистику",
-                                    modifier = Modifier.size(20.dp),
-                                    tint = mapControlSecondaryContentColor
-                                )
-                            }
-
-                            VisaLegendGrid(
-                                passportName = passport.name,
-                                visaCounts = visaCounts,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        start = legendHorizontalPadding,
-                                        top = if (compact) 13.dp else 15.dp,
-                                        end = legendHorizontalPadding,
-                                        bottom = if (compact) 26.dp else 28.dp
-                                    ),
-                                compact = compact
-                            )
-                        }
-
                     }
                 }
             }
@@ -1734,10 +1676,11 @@ internal fun MapCard(
     }
 }
 
-
 internal fun Modifier.borderlyRoundedRectRim(
     rimColor: Color,
-    cornerRadius: Dp
+    cornerRadius: Dp,
+    drawTop: Boolean = true,
+    drawBottom: Boolean = true
 ): Modifier = drawWithContent {
     drawContent()
 
@@ -1858,7 +1801,9 @@ internal fun Modifier.borderlyRoundedRectRim(
             val solidStart = fadeLength
             val solidEnd = (routeLength - fadeLength)
                 .coerceAtLeast(solidStart)
-            val fadeSteps = 32
+            // Меньше сегментов = дешевле перерисовка анимирующихся рамок
+            // (градиент всё равно плавный благодаря smoothStep).
+            val fadeSteps = 10
 
             fun drawSegment(
                 from: Float,
@@ -1912,8 +1857,8 @@ internal fun Modifier.borderlyRoundedRectRim(
             }
         }
 
-        drawRoute(upperPath)
-        drawRoute(lowerPath)
+        if (drawTop) drawRoute(upperPath)
+        if (drawBottom) drawRoute(lowerPath)
     }
 }
 
@@ -1924,18 +1869,12 @@ private data class VisaLegendItem(
     val showCount: Boolean = true
 )
 
+@Composable
 private fun VisaType.mapLegendTitle(): String = when (this) {
-    VisaType.HOME_COUNTRY -> "Страна паспорта"
-    VisaType.FREEDOM -> "Свобода"
-    VisaType.VISA_FREE -> "Без визы"
-    VisaType.ETA -> "eTA/ESTA"
-    VisaType.VISA_ON_ARRIVAL -> "По прибытии"
-    VisaType.E_VISA -> "eVisa"
-    VisaType.VISA_REQUIRED -> "Нужна виза"
-    VisaType.ENTRY_RESTRICTED -> "Ограничено"
-    VisaType.SPECIAL_PERMIT -> "Спецразрешение"
-    VisaType.MIXED_REQUIREMENTS -> "Различаются"
-    VisaType.NO_DATA -> "Нет данных"
+    VisaType.FREEDOM -> stringResource(R.string.map_legend_freedom_short)
+    VisaType.SPECIAL_PERMIT -> stringResource(R.string.map_legend_special_permit_short)
+    VisaType.MIXED_REQUIREMENTS -> stringResource(R.string.map_legend_mixed_requirements_short)
+    else -> localizedTitle()
 }
 
 @Composable
@@ -2103,8 +2042,9 @@ internal fun Legend(
                 buildAnnotatedString { append(text) }
             },
             modifier = Modifier.padding(start = if (compact) 4.dp else 6.dp),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = borderlyPrimaryContentColor(),
             fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -2133,6 +2073,8 @@ internal fun FullScreenWorldMap(
     onEmptySpaceSelected: () -> Unit,
     onClose: () -> Unit
 ) {
+    val context = LocalContext.current
+    val displayLocale = LocalConfiguration.current.locales[0]
     var fullScreenDetailsCountry by remember { mutableStateOf<CountryInfo?>(null) }
     var localSelectedCountryIso by remember(selectedCountryIso) {
         mutableStateOf(selectedCountryIso)
@@ -2142,6 +2084,12 @@ internal fun FullScreenWorldMap(
     val fullScreenDetailsSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
+    val fullScreenControlColor = borderlyControlSurfaceColor()
+    val fullScreenControlRimColor = borderlyControlRimColor()
+    val fullScreenPrimaryContentColor = borderlyPrimaryContentColor()
+    val zoomInDescription = stringResource(R.string.zoom_in)
+    val zoomOutDescription = stringResource(R.string.zoom_out)
+    val closeDescription = stringResource(R.string.close)
 
     Dialog(
         onDismissRequest = onClose,
@@ -2165,13 +2113,13 @@ internal fun FullScreenWorldMap(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Карта возможностей",
-                            color = MaterialTheme.colorScheme.onBackground,
+                            text = stringResource(R.string.opportunity_map),
+                            color = fullScreenPrimaryContentColor,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Паспорт: ${passport.name}",
+                            text = stringResource(R.string.passport_label, passport.localizedName()),
                             modifier = Modifier.padding(top = 2.dp),
                             color = borderlySecondaryContentColor(),
                             fontSize = 12.sp
@@ -2180,13 +2128,17 @@ internal fun FullScreenWorldMap(
                     Surface(
                         modifier = Modifier
                             .size(48.dp)
-                            .noRippleClick(onClose),
-                        color = MaterialTheme.colorScheme.surface,
+                            .borderlyPressable(onClose)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = closeDescription
+                            },
+                        color = fullScreenControlColor,
                         shape = CircleShape,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        border = BorderStroke(1.dp, fullScreenControlRimColor)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(text = "×", color = MaterialTheme.colorScheme.onSurface, fontSize = 26.sp)
+                            Text(text = "×", color = fullScreenPrimaryContentColor, fontSize = 26.sp)
                         }
                     }
                 }
@@ -2209,6 +2161,7 @@ internal fun FullScreenWorldMap(
                         onCountrySelected = { countryIso, name, flag ->
                             localSelectedCountryIso = countryIso
                             val country = mapCountryInfo(
+                                context = context,
                                 countryIso = countryIso,
                                 name = name,
                                 flag = flag,
@@ -2232,11 +2185,12 @@ internal fun FullScreenWorldMap(
                     // Same zoom controls as on the main map: separate translucent buttons,
                     // 1.60x button zoom with 210ms FastOutSlowIn easing handled by InteractiveWorldMap,
                     // plus an invisible touch shield in the 8dp gap so a missed tap cannot open a country.
-                    val mapControlColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
-                    val mapControlShapeRadius = 18.dp
-                    val mapControlBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f)
+                    val mapControlColor = fullScreenControlColor
+                    val mapControlBorderColor = fullScreenControlRimColor
                     val zoomInInteractionSource = remember { MutableInteractionSource() }
                     val zoomOutInteractionSource = remember { MutableInteractionSource() }
+                    val fullScreenZoomInScale = rememberBorderlyPressScale(zoomInInteractionSource)
+                    val fullScreenZoomOutScale = rememberBorderlyPressScale(zoomOutInteractionSource)
 
                     Column(
                         modifier = Modifier
@@ -2261,6 +2215,14 @@ internal fun FullScreenWorldMap(
                                         style = Stroke(width = 1.dp.toPx())
                                     )
                                 }
+                                .graphicsLayer {
+                                    scaleX = fullScreenZoomInScale
+                                    scaleY = fullScreenZoomInScale
+                                }
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = zoomInDescription
+                                }
                                 .clickable(
                                     interactionSource = zoomInInteractionSource,
                                     indication = null
@@ -2269,7 +2231,7 @@ internal fun FullScreenWorldMap(
                         ) {
                             Text(
                                 text = "+",
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = fullScreenPrimaryContentColor,
                                 fontSize = 28.sp,
                                 lineHeight = 28.sp,
                                 fontWeight = FontWeight.Normal
@@ -2298,6 +2260,14 @@ internal fun FullScreenWorldMap(
                                         style = Stroke(width = 1.dp.toPx())
                                     )
                                 }
+                                .graphicsLayer {
+                                    scaleX = fullScreenZoomOutScale
+                                    scaleY = fullScreenZoomOutScale
+                                }
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = zoomOutDescription
+                                }
                                 .clickable(
                                     interactionSource = zoomOutInteractionSource,
                                     indication = null
@@ -2306,7 +2276,7 @@ internal fun FullScreenWorldMap(
                         ) {
                             Text(
                                 text = "−",
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = fullScreenPrimaryContentColor,
                                 fontSize = 29.sp,
                                 lineHeight = 29.sp,
                                 fontWeight = FontWeight.Normal
@@ -2322,7 +2292,7 @@ internal fun FullScreenWorldMap(
                 ) {
                     val compact = maxWidth < 360.dp
                     VisaLegendGrid(
-                        passportName = passport.name,
+                        passportName = passport.localizedName(),
                         visaCounts = visaCounts,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2335,9 +2305,18 @@ internal fun FullScreenWorldMap(
                 }
                 Text(
                     text = if (dataLastCheckedAt > 0L) {
-                        "База проверена ${formatLastSuccessfulCheckForUi(dataLastCheckedAt)}"
+                        stringResource(
+                            R.string.database_checked,
+                            formatLastSuccessfulCheckForUi(
+                                dataLastCheckedAt,
+                                displayLocale
+                            )
+                        )
                     } else {
-                        "Данные изменены ${formatDataDateForUi(dataUpdated)}"
+                        stringResource(
+                            R.string.data_changed,
+                            formatDataDateForUi(dataUpdated, displayLocale)
+                        )
                     },
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -2432,15 +2411,15 @@ internal fun MapQuickFiltersSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Показать на карте",
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = stringResource(R.string.show_on_map),
+                    color = borderlyPrimaryContentColor(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 if (selected != MapVisaQuickFilter.ALL) {
                     Text(
-                        text = "$selectedCount стран",
+                        text = stringResource(R.string.selected_countries_count, selectedCount),
                         color = borderlySecondaryContentColor(),
                         fontSize = 11.sp
                     )
@@ -2483,20 +2462,30 @@ internal fun MapQuickFilterChip(
     onClick: () -> Unit,
     onMeasuredHeight: (Int) -> Unit = {}
 ) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val lowEndDevice = LocalBorderlyLowEndMode.current
+    val rimBaseColor = borderlyControlRimColor()
 
-    val unselectedChipColor = if (darkTheme) {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
-    } else {
-        Color(0xFFF9F9F9).copy(alpha = 0.90f)
-    }
-
-    val rimBaseColor = if (darkTheme) {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.92f)
-    } else {
-        Color.White
-    }
+    // Selection is a smooth state change, not a swap: surface, border, text
+    // and dot all ease to their new colors together in ~180ms.
+    val chipSurfaceColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else Color.Transparent,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "filterChipSurface"
+    )
+    val chipBorderColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else Color.Transparent,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "filterChipBorder"
+    )
+    val chipTextColor by animateColorAsState(
+        targetValue = if (selected) {
+            borderlySelectedContentColor()
+        } else {
+            borderlyPrimaryContentColor()
+        },
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "filterChipText"
+    )
 
     Surface(
         modifier = Modifier
@@ -2527,39 +2516,37 @@ internal fun MapQuickFilterChip(
                     Modifier
                 }
             )
-            .noRippleClick(onClick),
-        color = if (selected) {
-            borderlySelectedControlColor()
-        } else {
-            Color.Transparent
-        },
+            .borderlyPressable(onClick),
+        color = chipSurfaceColor,
         shape = RoundedCornerShape(50),
-        border = if (selected) {
-            BorderStroke(1.dp, borderlySelectedControlColor())
-        } else {
-            null
-        }
+        border = BorderStroke(1.dp, chipBorderColor)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             filter.accentColor?.let { accent ->
+                val chipDotColor by animateColorAsState(
+                    targetValue = if (selected) {
+                        borderlySelectedContentColor().copy(alpha = .92f)
+                    } else {
+                        accent
+                    },
+                    animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+                    label = "filterChipDot"
+                )
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(
-                            if (selected) borderlySelectedContentColor().copy(alpha = .92f) else accent,
-                            CircleShape
-                        )
+                        .background(chipDotColor, CircleShape)
                 )
                 Spacer(modifier = Modifier.width(7.dp))
             }
             Text(
-                text = filter.title,
-                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+                text = filter.localizedTitle(),
+                color = chipTextColor,
                 fontSize = 12.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
             )
         }
     }
@@ -2578,43 +2565,40 @@ internal fun RegionAccessSection(
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
     ) {
-        val title = when (activeFilter) {
-            MapVisaQuickFilter.ALL -> "Все страны по регионам"
-            MapVisaQuickFilter.VISA_FREE -> "Без визы по регионам"
-            MapVisaQuickFilter.FREEDOM -> "Свобода передвижения по регионам"
-            MapVisaQuickFilter.ETA -> "eTA/ESTA по регионам"
-            MapVisaQuickFilter.VISA_ON_ARRIVAL -> "Виза по прибытии по регионам"
-            MapVisaQuickFilter.E_VISA -> "Электронная виза по регионам"
-            MapVisaQuickFilter.VISA_REQUIRED -> "Виза нужна по регионам"
-            MapVisaQuickFilter.ENTRY_RESTRICTED -> "Ограниченный въезд по регионам"
-            MapVisaQuickFilter.SPECIAL_PERMIT -> "Специальное разрешение по регионам"
-            MapVisaQuickFilter.MIXED_REQUIREMENTS -> "Смешанные условия по регионам"
+        AnimatedContent(
+            targetState = activeFilter,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(220)) togetherWith
+                    fadeOut(animationSpec = tween(120))
+            },
+            label = "regionSectionHeader"
+        ) { filter ->
+            Column {
+                Text(
+                    text = stringResource(
+                        R.string.by_region,
+                        if (filter == MapVisaQuickFilter.ALL) {
+                            stringResource(R.string.all_countries)
+                        } else {
+                            filter.localizedTitle()
+                        }
+                    ),
+                    color = borderlyPrimaryContentColor(),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (filter == MapVisaQuickFilter.ALL) {
+                        stringResource(R.string.region_country_count_description)
+                    } else {
+                        filter.localizedTitle()
+                    },
+                    modifier = Modifier.padding(top = 3.dp),
+                    color = borderlySecondaryContentColor(),
+                    fontSize = 11.sp
+                )
+            }
         }
-        val subtitle = when (activeFilter) {
-            MapVisaQuickFilter.ALL -> "Количество стран в каждом регионе"
-            MapVisaQuickFilter.VISA_FREE -> "Предварительная виза не требуется"
-            MapVisaQuickFilter.FREEDOM -> "Свобода передвижения"
-            MapVisaQuickFilter.ETA -> "eTA/ESTA оформляется до поездки"
-            MapVisaQuickFilter.VISA_ON_ARRIVAL -> "Виза оформляется по прибытии"
-            MapVisaQuickFilter.E_VISA -> "Электронная виза"
-            MapVisaQuickFilter.VISA_REQUIRED -> "Обычная виза нужна заранее"
-            MapVisaQuickFilter.ENTRY_RESTRICTED -> "Обычный туристический въезд ограничен"
-            MapVisaQuickFilter.SPECIAL_PERMIT -> "Требуется отдельное специальное разрешение"
-            MapVisaQuickFilter.MIXED_REQUIREMENTS -> "Правила зависят от территории или маршрута"
-        }
-
-        Text(
-            text = title,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = subtitle,
-            modifier = Modifier.padding(top = 3.dp),
-            color = borderlySecondaryContentColor(),
-            fontSize = 11.sp
-        )
 
         Row(
             modifier = Modifier
@@ -2685,34 +2669,38 @@ internal fun RegionAccessCard(
 ) {
     var tapFeedback by remember { mutableStateOf(false) }
     val tapFeedbackScope = rememberCoroutineScope()
+    // Respond on pointer-down: the card reacts the instant the finger lands,
+    // while the existing short flash still confirms the completed tap.
+    val regionInteractionSource = remember { MutableInteractionSource() }
+    val regionPressed by regionInteractionSource.collectIsPressedAsState()
+    val regionPressScale = rememberBorderlyPressScale(regionInteractionSource)
 
     val regionCardCornerRadius = 26.dp
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val regionCardRimColor = if (darkTheme) {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.92f)
-    } else {
-        Color.White
-    }
-    val regionCardColor = if (darkTheme) {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
-    } else {
-        Color(0xFFF9F9F9).copy(alpha = 0.90f)
-    }
-    val selectedRegionFill = if (darkTheme) {
-        Color(0xFF2A323A).copy(alpha = 0.86f)
-    } else {
-        Color(0xFFDCE0E5).copy(alpha = 0.92f)
-    }
-    val selectedRegionStroke = if (darkTheme) {
-        Color(0xFF596673).copy(alpha = 0.96f)
-    } else {
-        Color(0xFFB8C0CA).copy(alpha = 0.96f)
-    }
-    val tapRegionFill = if (darkTheme) {
-        Color(0xFF323B44).copy(alpha = 0.90f)
-    } else {
-        Color(0xFFD2D8E0).copy(alpha = 0.94f)
-    }
+    val regionCardRimColor = borderlyControlRimColor()
+    val regionCardColor = borderlyControlSurfaceColor()
+    val selectedRegionFill = borderlyMutedControlColor()
+    val selectedRegionStroke = borderlySecondaryContentColor().copy(alpha = 0.42f)
+    val tapRegionFill = borderlyPrimaryContentColor().copy(alpha = 0.10f)
+
+    // Выбор — плавное перетекание, а не мгновенная замена заливки.
+    val regionHighlightFill by animateColorAsState(
+        targetValue = when {
+            regionPressed || tapFeedback -> tapRegionFill
+            selected -> selectedRegionFill
+            else -> Color.Transparent
+        },
+        animationSpec = tween(160, easing = BorderlyStrongEaseOut),
+        label = "regionCardFill"
+    )
+    val regionHighlightStroke by animateColorAsState(
+        targetValue = if (selected && !regionPressed && !tapFeedback) {
+            selectedRegionStroke
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(160, easing = BorderlyStrongEaseOut),
+        label = "regionCardStroke"
+    )
 
     Surface(
         modifier = modifier
@@ -2720,8 +2708,17 @@ internal fun RegionAccessCard(
                 rimColor = regionCardRimColor,
                 cornerRadius = regionCardCornerRadius
             )
-            .noRippleClick {
-                // Feedback happens on a completed tap, not while the finger is held down.
+            .graphicsLayer {
+                scaleX = regionPressScale
+                scaleY = regionPressScale
+            }
+            .clickable(
+                interactionSource = regionInteractionSource,
+                indication = null
+            ) {
+                // Short confirmation flash after the tap completes; the
+                // press-down response itself is handled above via
+                // regionPressed + regionPressScale.
                 tapFeedback = true
                 tapFeedbackScope.launch {
                     delay(110)
@@ -2735,26 +2732,22 @@ internal fun RegionAccessCard(
     ) {
         Box(
             modifier = Modifier.drawBehind {
-                if (selected || tapFeedback) {
-                    val inset = 4.dp.toPx()
-                    val innerWidth = (size.width - inset * 2f).coerceAtLeast(0f)
-                    val innerHeight = (size.height - inset * 2f).coerceAtLeast(0f)
-                    drawRoundRect(
-                        color = if (tapFeedback) tapRegionFill else selectedRegionFill,
-                        topLeft = Offset(inset, inset),
-                        size = Size(innerWidth, innerHeight),
-                        cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx())
-                    )
-                    if (selected && !tapFeedback) {
-                        drawRoundRect(
-                            color = selectedRegionStroke,
-                            topLeft = Offset(inset, inset),
-                            size = Size(innerWidth, innerHeight),
-                            cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx()),
-                            style = Stroke(width = 1.35.dp.toPx())
-                        )
-                    }
-                }
+                val inset = 4.dp.toPx()
+                val innerWidth = (size.width - inset * 2f).coerceAtLeast(0f)
+                val innerHeight = (size.height - inset * 2f).coerceAtLeast(0f)
+                drawRoundRect(
+                    color = regionHighlightFill,
+                    topLeft = Offset(inset, inset),
+                    size = Size(innerWidth, innerHeight),
+                    cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx())
+                )
+                drawRoundRect(
+                    color = regionHighlightStroke,
+                    topLeft = Offset(inset, inset),
+                    size = Size(innerWidth, innerHeight),
+                    cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx()),
+                    style = Stroke(width = 1.35.dp.toPx())
+                )
             }
         ) {
             // Minimal globe: the card itself keeps exactly the same size/style.
@@ -2781,12 +2774,12 @@ internal fun RegionAccessCard(
             ) {
                 Text(
                     text = count.toString(),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = borderlyPrimaryContentColor(),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = region.title,
+                    text = region.localizedTitle(),
                     modifier = Modifier.padding(top = 2.dp),
                     color = borderlySecondaryContentColor(),
                     fontSize = 10.sp,

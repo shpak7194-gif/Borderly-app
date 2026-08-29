@@ -1,20 +1,6 @@
 package com.example.borderly
 
-// BORDERLY_REGION_MAP_MODE_2026_08_19
-
-// BORDERLY_BOTTOM_NAV_TRUE_BACKDROP_BLUR_HAZE_2026_08_18
-
-// BORDERLY_REGION_CARDS_TO_FLOATING_NAV_TOP_GAP_2026_08_18
-
-// BORDERLY_REGION_CARDS_NAV_GAP_16DP_2026_08_18
-
 // BORDERLY8_FLOATING_BOTTOM_NAV_OVER_CONTENT_2026_08_18
-
-// BORDERLY_HOME_OVERSCROLL_MATCH_COMPARE_2026_08_18
-
-// BORDERLY_SMALLER_HOME_EDGE_BOUNCE_2026_08_18
-
-// BORDERLY_SETTINGS_FOURTH_BOTTOM_TAB_2026_08_18
 
 import android.content.Context
 import android.graphics.Color as AndroidColor
@@ -54,6 +40,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -66,11 +53,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.ui.res.stringResource
 import com.example.borderly.ui.theme.BorderlyTheme
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.withContext
 
 internal enum class AppThemeMode(
     val storageValue: String,
@@ -110,6 +99,10 @@ internal fun saveAppThemeMode(
 
 // Borderly v51: UI/behavior preserved; implementation split across files.
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(localizedAppContext(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val borderlyViewModel =
@@ -213,7 +206,7 @@ private fun BorderlyLoadingScreen() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Загружаем данные…",
+            text = stringResource(R.string.loading_data),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -237,7 +230,7 @@ private fun BorderlyErrorScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Не удалось загрузить данные",
+                text = stringResource(R.string.data_load_error),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
@@ -252,7 +245,7 @@ private fun BorderlyErrorScreen(
             Surface(
                 modifier = Modifier
                     .padding(top = 16.dp)
-                    .height(40.dp)
+                    .height(48.dp)
                     .noRippleClick(onRetry),
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(13.dp),
@@ -263,7 +256,7 @@ private fun BorderlyErrorScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Повторить",
+                        text = stringResource(R.string.retry),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -308,6 +301,38 @@ internal fun BorderlyHomeContent(
             .ifEmpty {
                 listOf(Passport("Россия", "🇷🇺", RussiaIsoNumeric, PassportRegion.EUROPE))
             }
+    }
+    // Тяжёлый рейтинг считается один раз на уровне контейнера и
+    // переиспользуется вкладками Сравнение и Рейтинг: при переключении
+    // вкладок он больше не пересчитывается заново на главном потоке.
+    // Сам расчёт выполняется в фоновом диспетчере и не блокирует UI.
+    val sharedRanking by produceState(
+        initialValue = emptyList<PassportMobility>(),
+        passports,
+        nativeMap,
+        visaDatabase
+    ) {
+        value = withContext(Dispatchers.Default) {
+            passports
+                .map { passportMobility(it, nativeMap, visaDatabase) }
+                .sortedWith(
+                    compareByDescending<PassportMobility> { it.score }
+                        .thenBy { it.passport.name }
+                )
+        }
+    }
+    val sharedRankByPassport = remember(sharedRanking) {
+        buildMap {
+            var previousScore: Int? = null
+            var currentRank = 0
+            sharedRanking.forEach { mobility ->
+                if (mobility.score != previousScore) {
+                    currentRank += 1
+                    previousScore = mobility.score
+                }
+                put(mobility.passport.isoNumeric, currentRank)
+            }
+        }
     }
     val savedPassportIso = remember { loadSelectedPassportIso(context) }
     val passportSaver = remember(passports) {
@@ -362,6 +387,7 @@ internal fun BorderlyHomeContent(
             ?.filter { it.id in supportedDestinationIds }
             ?.map { country ->
             mapCountryInfo(
+                context = context,
                 countryIso = country.id,
                 name = country.name,
                 flag = country.flag,
@@ -513,6 +539,7 @@ internal fun BorderlyHomeContent(
     val openCountryFromMap: (Int, String, String) -> Unit = { countryIso, name, flag ->
         val country = countries.firstOrNull { it.isoNumeric == countryIso }
             ?: mapCountryInfo(
+                context = context,
                 countryIso = countryIso,
                 name = name,
                 flag = flag,
@@ -610,6 +637,7 @@ internal fun BorderlyHomeContent(
                 secondPassport = comparisonSecondPassport,
                 nativeMap = nativeMap,
                 visaDatabase = visaDatabase,
+                rankByPassport = sharedRankByPassport,
                 onChooseFirst = {
                     activeSheet = HomeSheet.PassportPicker(
                         PassportPickerTarget.COMPARE_FIRST
@@ -627,10 +655,11 @@ internal fun BorderlyHomeContent(
             )
 
             AppTab.RANKING -> PassportRankingScreen(
-                passports = passports,
                 nativeMap = nativeMap,
                 visaDatabase = visaDatabase,
                 selectedPassport = selectedPassport,
+                ranking = sharedRanking,
+                rankByPassport = sharedRankByPassport,
                 hazeState = bottomNavigationHazeState,
                 onHeaderPassportClick = {
                     activeSheet = HomeSheet.PassportPicker(
@@ -786,5 +815,3 @@ internal fun BorderlyHomeContent(
         )
     }
 }
-
-

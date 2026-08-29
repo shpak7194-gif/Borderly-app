@@ -1,29 +1,5 @@
 package com.example.borderly
 
-// BORDERLY_PASSPORT_LABEL_MATCH_SEARCH_FONT_2026_08_18
-
-// BORDERLY_PASSPORT_SELECTOR_SINGLE_ROW_V2_2026_08_18
-
-// BORDERLY_PASSPORT_SELECTOR_PREMIUM_CONTENT_V1_2026_08_18
-
-// BORDERLY_HEADER_FULL_WIDTH_PASSPORT_NO_SETTINGS_2026_08_18
-
-// BORDERLY_LONG_PILL_EXACT_FILTER_TRAJECTORY_V3_2026_08_17
-
-// BORDERLY_EXPLICIT_LONG_PILL_TRAJECTORY_2026_08_17
-
-// BORDERLY_LONG_PILL_TRAJECTORY_ONLY_FIX_2026_08_17
-
-// BORDERLY_ONE_SHARED_PILL_RIM_FOR_FILTER_SEARCH_PASSPORT_2026_08_17
-
-// BORDERLY_PASSPORT_SURFACE_MATCH_FILTER_CHIP_2026_08_17
-
-// BORDERLY_HEADER_TRAJECTORY_EXACTLY_MATCH_FILTERS_2026_08_17
-
-// BORDERLY_PILL_RIM_CENTERED_TOP_BOTTOM_TRAJECTORY_2026_08_17
-
-// BORDERLY_HEADER_PILL_AND_ROUND_STYLE_2026_08_17
-
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath
 import androidx.compose.foundation.background
@@ -57,9 +33,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,8 +45,6 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.max
 import kotlin.math.min
 
-
-// BORDERLY_SHARED_PREMIUM_CONTROL_CHROME_2026_08_17
 internal fun Modifier.borderlyAdaptivePillRim(
     rimColor: Color,
     solidFraction: Float = 0.13f,
@@ -396,7 +370,7 @@ internal fun Header(
 internal fun PassportSelector(
     selectedPassport: Passport,
     onClick: () -> Unit,
-    label: String = "Паспорт",
+    label: String? = null,
     maxSelectorWidth: Dp = 202.dp,
     controlHeight: Dp = 46.dp,
     controlColor: Color = MaterialTheme.colorScheme.surface,
@@ -426,7 +400,7 @@ internal fun PassportSelector(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = label,
+                text = label ?: stringResource(R.string.passport),
                 color = borderlySecondaryContentColor(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
@@ -444,7 +418,7 @@ internal fun PassportSelector(
             Spacer(modifier = Modifier.width(7.dp))
 
             Text(
-                text = selectedPassport.name,
+                text = selectedPassport.localizedName(),
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
@@ -457,11 +431,10 @@ internal fun PassportSelector(
 
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = "Выбрать паспорт",
+                contentDescription = stringResource(R.string.choose_passport),
                 modifier = Modifier.size(19.dp),
                 tint = borderlySecondaryContentColor()
             )
         }
     }
 }
-

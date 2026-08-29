@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -154,7 +155,7 @@ internal class BorderlyViewModel(
                 onFailure = { error ->
                     dataState = BorderlyDataState.Error(
                         message = error.message
-                            ?: "Не удалось прочитать локальную базу Borderly"
+                            ?: context.getString(R.string.local_database_error)
                     )
                 }
             )
@@ -164,7 +165,15 @@ internal class BorderlyViewModel(
     private fun checkForRemoteUpdate() {
         scope.launch {
             val context = getApplication<Application>().applicationContext
-            val result = checkForVisaDatabaseUpdate(context)
+            // The three release channels are independent. Start their I/O
+            // together so a slow endpoint cannot delay the other checks.
+            val visaCheck = async { checkForVisaDatabaseUpdate(context) }
+            val guideCheck = async { checkForEntryGuideDatabaseUpdate(context) }
+            val requirementCheck = async {
+                checkForEntryRequirementDatabaseUpdate(context)
+            }
+
+            val result = visaCheck.await()
 
             when {
                 result.database != null -> {
@@ -176,7 +185,7 @@ internal class BorderlyViewModel(
                 }
             }
 
-            val guideResult = checkForEntryGuideDatabaseUpdate(context)
+            val guideResult = guideCheck.await()
             when {
                 guideResult.database != null -> {
                     applyEntryGuideDatabase(guideResult.database)
@@ -189,7 +198,7 @@ internal class BorderlyViewModel(
                 }
             }
 
-            val entryRequirementResult = checkForEntryRequirementDatabaseUpdate(context)
+            val entryRequirementResult = requirementCheck.await()
             when {
                 entryRequirementResult.database != null -> {
                     applyEntryRequirementDatabase(entryRequirementResult.database)
@@ -214,7 +223,7 @@ internal fun emptyVisaDatabase(): VisaDatabase =
     VisaDatabase(
         source = "Passport Index Data",
         sourceUrl = "",
-        updated = "не загружены",
+        updated = "",
         origin = VisaDatabaseOrigin.BUNDLED,
         version = 0,
         destinationCount = 248,
@@ -225,7 +234,7 @@ internal fun emptyVisaDatabase(): VisaDatabase =
 internal fun emptyEntryGuideDatabase(): EntryGuideDatabase =
     EntryGuideDatabase(
         version = 0,
-        updated = "не загружены",
+        updated = "",
         origin = VisaDatabaseOrigin.BUNDLED,
         lastSuccessfulCheckAt = 0L,
         guides = emptyMap()
@@ -234,7 +243,7 @@ internal fun emptyEntryGuideDatabase(): EntryGuideDatabase =
 internal fun emptyEntryRequirementDatabase(): EntryRequirementDatabase =
     EntryRequirementDatabase(
         version = 0,
-        updated = "не загружены",
+        updated = "",
         origin = VisaDatabaseOrigin.BUNDLED,
         lastSuccessfulCheckAt = 0L,
         requirements = emptyMap()

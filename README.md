@@ -12,11 +12,11 @@
 5. Запустите **Build > Assemble Project** или в терминале:
 
 ```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease
 ```
 
-В проекте оставлен один Gradle-модуль `:app`. Кэши, старые build-артефакты и
-вложенная копия Android-проекта в архив не включены.
+В проекте один Gradle-модуль `:app`. В дистрибутив и коммиты не должны попадать
+локальные кэши, старые build-артефакты и вложенная папка `borderly app2`.
 
 ## Данные
 
@@ -51,8 +51,13 @@ node scripts/verify_bundled_data.mjs
 ```
 
 GitHub workflow `.github/workflows/android-ci.yml` выполняет JSON-проверку,
-unit tests, Android Lint и сборку debug APK. APK публикуется как artifact только
-после успешного прохождения всех этапов.
+unit tests, Android Lint, компиляцию instrumented-тестов, debug APK и
+оптимизированную release-сборку. Debug APK публикуется как artifact только после
+успешного прохождения всех этапов.
+
+Перед публикацией нужно заменить тестовый `applicationId = "com.example.borderly"`
+на окончательный уникальный идентификатор и настроить release signing. Эти два
+значения зависят от аккаунта разработчика и не должны выбираться автоматически.
 
 ## Важно
 

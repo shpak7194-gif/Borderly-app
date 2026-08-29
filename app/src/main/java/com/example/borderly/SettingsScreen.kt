@@ -1,13 +1,9 @@
 package com.example.borderly
 
-// BORDERLY_SETTINGS_SUBTLE_ROW_DIVIDERS_2026_08_18
-
-// BORDERLY_SETTINGS_REDESIGN_V1_COMPILE_FIX_2026_08_18
-
-// BORDERLY_SETTINGS_REDESIGN_V1_2026_08_18
-
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,11 +19,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -36,12 +38,20 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlin.math.min
 
 @Composable
@@ -62,6 +72,9 @@ internal fun SettingsScreen(
     val keepBackCallbackCompatible = onBack
 
     val context = LocalContext.current
+    val displayLocale = LocalConfiguration.current.locales[0]
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    val selectedLanguage = AppLanguage.current(context)
     val appVersion = remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
@@ -86,7 +99,7 @@ internal fun SettingsScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Text(
-            text = "Настройки",
+            text = stringResource(R.string.settings),
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(
@@ -107,18 +120,18 @@ internal fun SettingsScreen(
                 start = 18.dp,
                 top = 6.dp,
                 end = 18.dp,
-                bottom = 116.dp
+                bottom = 132.dp
             ),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
                 SettingsSection(
-                    title = "Оформление",
+                    title = stringResource(R.string.appearance),
                     cardColor = cardColor,
                     rimColor = cardRimColor
                 ) {
                     Text(
-                        text = "Тема",
+                        text = stringResource(R.string.theme),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -136,19 +149,19 @@ internal fun SettingsScreen(
 
             item {
                 SettingsSection(
-                    title = "Производительность",
+                    title = stringResource(R.string.performance),
                     cardColor = cardColor,
                     rimColor = cardRimColor
                 ) {
                     Text(
-                        text = "Режим для слабых устройств",
+                        text = stringResource(R.string.low_end_mode),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
                     )
 
                     Text(
-                        text = "Отключает размытие фона и упрощает отрисовку карты. «Авто» определяет режим по устройству.",
+                        text = stringResource(R.string.low_end_mode_description),
                         modifier = Modifier.padding(top = 3.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
@@ -167,54 +180,68 @@ internal fun SettingsScreen(
 
             item {
                 SettingsSection(
-                    title = "Язык",
+                    title = stringResource(R.string.language),
                     cardColor = cardColor,
                     rimColor = cardRimColor
                 ) {
                     SettingsInfoRow(
-                        title = "Язык приложения",
-                        value = "Русский",
-                        badge = "Скоро"
+                        title = stringResource(R.string.app_language),
+                        value = selectedLanguage.localizedName(),
+                        onClick = { showLanguageDialog = true }
                     )
                 }
             }
 
             item {
                 SettingsSection(
-                    title = "Данные",
+                    title = stringResource(R.string.data),
                     cardColor = cardColor,
                     rimColor = cardRimColor
                 ) {
                     SettingsInfoRow(
-                        title = "Версия базы",
+                        title = stringResource(R.string.database_version),
                         value = dataVersion.toString()
                     )
                     SettingsDivider()
                     SettingsInfoRow(
-                        title = "Последнее обновление",
-                        value = dataUpdated.ifBlank { "—" }
+                        title = stringResource(R.string.last_update),
+                        value = dataUpdated
+                            .takeIf { it.isNotBlank() }
+                            ?.let { formatDataDateForUi(it, displayLocale) }
+                            ?: "—"
                     )
                 }
             }
 
             item {
                 SettingsSection(
-                    title = "О приложении",
+                    title = stringResource(R.string.about),
                     cardColor = cardColor,
                     rimColor = cardRimColor
                 ) {
                     SettingsInfoRow(
-                        title = "Источник данных",
-                        value = dataSource.ifBlank { "—" }
+                        title = stringResource(R.string.data_source),
+                        value = localizedReferenceText(dataSource).ifBlank { "—" }
                     )
                     SettingsDivider()
                     SettingsInfoRow(
-                        title = "Версия Borderly",
+                        title = stringResource(R.string.borderly_version),
                         value = appVersion
                     )
                 }
             }
         }
+    }
+
+    if (showLanguageDialog) {
+        LanguagePickerDialog(
+            selected = selectedLanguage,
+            onDismiss = { showLanguageDialog = false },
+            onSelected = { language ->
+                showLanguageDialog = false
+                setAppLanguage(context, language)
+            }
+        )
     }
 }
 
@@ -265,7 +292,7 @@ private fun ThemeSegmentedControl(
     darkTheme: Boolean
 ) {
     SettingsSegmentedControl(
-        options = AppThemeMode.entries.map { it.title },
+        options = AppThemeMode.entries.map { it.localizedTitle() },
         selectedIndex = AppThemeMode.entries.indexOf(selected),
         onSelected = { index -> onSelected(AppThemeMode.entries[index]) },
         darkTheme = darkTheme
@@ -279,7 +306,7 @@ private fun PerformanceModeSegmentedControl(
     darkTheme: Boolean
 ) {
     SettingsSegmentedControl(
-        options = PerformanceMode.entries.map { it.title },
+        options = PerformanceMode.entries.map { it.localizedTitle() },
         selectedIndex = PerformanceMode.entries.indexOf(selected),
         onSelected = { index -> onSelected(PerformanceMode.entries[index]) },
         darkTheme = darkTheme
@@ -307,7 +334,8 @@ private fun SettingsSegmentedControl(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .selectableGroup()
+            .height(48.dp)
             .background(
                 color = trackColor,
                 shape = RoundedCornerShape(18.dp)
@@ -323,7 +351,11 @@ private fun SettingsSegmentedControl(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .noRippleClick { onSelected(index) },
+                    .noRippleClick { onSelected(index) }
+                    .semantics {
+                        role = Role.RadioButton
+                        selected = active
+                    },
                 color = if (active) selectedColor else Color.Transparent,
                 shape = RoundedCornerShape(15.dp),
                 border = null,
@@ -372,12 +404,14 @@ private fun SettingsDivider() {
 private fun SettingsInfoRow(
     title: String,
     value: String,
-    badge: String? = null
+    badge: String? = null,
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(48.dp)
+            .then(if (onClick != null) Modifier.noRippleClick(onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -401,6 +435,16 @@ private fun SettingsInfoRow(
             overflow = TextOverflow.Ellipsis
         )
 
+        if (onClick != null) {
+            Spacer(modifier = Modifier.size(4.dp))
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            )
+        }
+
         if (badge != null) {
             Spacer(modifier = Modifier.size(8.dp))
 
@@ -420,6 +464,82 @@ private fun SettingsInfoRow(
                     lineHeight = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguagePickerDialog(
+    selected: AppLanguage,
+    onDismiss: () -> Unit,
+    onSelected: (AppLanguage) -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(26.dp),
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(vertical = 14.dp)
+                    .selectableGroup()
+            ) {
+                Text(
+                    text = stringResource(R.string.choose_language),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                AppLanguage.entries.forEachIndexed { index, language ->
+                    val isSelected = language == selected
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .noRippleClick { onSelected(language) }
+                            .semantics {
+                                role = Role.RadioButton
+                                this.selected = isSelected
+                            }
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = language.localizedName(),
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            }
+                        )
+                        Text(
+                            text = if (isSelected) "●" else "○",
+                            modifier = Modifier.clearAndSetSemantics { },
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
+                            fontSize = 16.sp
+                        )
+                    }
+
+                    if (index < AppLanguage.entries.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -586,4 +706,3 @@ private fun Modifier.settingsRoundedRectRim(
         drawRoute(lowerPath)
     }
 }
-

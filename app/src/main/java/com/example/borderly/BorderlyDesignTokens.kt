@@ -3,9 +3,9 @@ package com.example.borderly
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-
-// BORDERLY_SHARED_COLOR_TOKENS_2026_08_21_READABLE_UNIFIED
 
 @Composable
 internal fun borderlyIsDarkTheme(): Boolean =
@@ -84,4 +84,47 @@ internal fun borderlySecondaryContentColor(): Color {
     } else {
         Color(0xFF68727D)
     }
+}
+
+/**
+ * Keeps the map palette intact while making the same accent readable when it
+ * is used as small text. Some travel-status yellows are excellent map fills
+ * but do not have enough contrast against a light card without darkening.
+ */
+internal fun borderlyReadableAccentColor(
+    accent: Color,
+    background: Color,
+    accentBackgroundAlpha: Float = 0f,
+    minimumContrast: Float = 4.5f
+): Color {
+    val textBackground = if (accentBackgroundAlpha > 0f) {
+        accent.copy(alpha = accentBackgroundAlpha).compositeOver(background)
+    } else {
+        background
+    }
+
+    fun contrast(first: Color, second: Color): Float {
+        val firstLuminance = first.luminance()
+        val secondLuminance = second.luminance()
+        return (maxOf(firstLuminance, secondLuminance) + 0.05f) /
+            (minOf(firstLuminance, secondLuminance) + 0.05f)
+    }
+
+    val opaqueAccent = accent.copy(alpha = 1f)
+    if (contrast(opaqueAccent, textBackground) >= minimumContrast) {
+        return opaqueAccent
+    }
+
+    val target = if (textBackground.luminance() > 0.5f) Color.Black else Color.White
+    var insufficient = 0f
+    var sufficient = 1f
+    repeat(12) {
+        val fraction = (insufficient + sufficient) / 2f
+        if (contrast(lerp(opaqueAccent, target, fraction), textBackground) >= minimumContrast) {
+            sufficient = fraction
+        } else {
+            insufficient = fraction
+        }
+    }
+    return lerp(opaqueAccent, target, sufficient)
 }

@@ -40,10 +40,13 @@ jobs:
       - name: Validate bundled visa data
         run: node scripts/verify_bundled_data.mjs
 
-      - name: Run unit tests, lint and debug build
+      - name: Run unit tests, lint and debug builds
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+
+      - name: Verify optimized release build
+        run: ./gradlew --no-daemon assembleRelease
 
       - name: Upload verified debug APK
         uses: actions/upload-artifact@v4

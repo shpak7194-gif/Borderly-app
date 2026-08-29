@@ -1,21 +1,9 @@
 package com.example.borderly
 
-// BORDERLY_COUNTRY_HEADER_EQUAL_VERTICAL_SPACING_2026_08_19
-
-// BORDERLY_SELECTED_PASSPORT_INNER_INSET_4DP_2026_08_19
-
-// BORDERLY_PICKER_SECTION_HEADERS_SIDE_INSETS_FIX_2026_08_19
-
-// BORDERLY_PICKER_FILTERS_EDGE_TO_EDGE_2026_08_19
-
-// BORDERLY_PICKERS_RANKING_API_COMPAT_FIX_2026_08_19
-
-// BORDERLY_PICKERS_SHARED_DESIGN_CODE_V1_COMPILE_FIX_2026_08_19
-
-// BORDERLY_PICKERS_SHARED_DESIGN_CODE_V1_2026_08_19
-
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -62,6 +50,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -77,17 +67,37 @@ internal fun PassportPickerSheet(
     recentPassportIds: List<Int>,
     onPassportSelected: (Passport) -> Unit
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     var query by rememberSaveable { mutableStateOf("") }
     var regionFilter by rememberSaveable { mutableStateOf(PassportRegionFilter.ALL) }
     val passportListState = rememberLazyListState()
     val normalizedQuery = query.trim()
-    val visiblePassports = passports.filter { passport ->
-        matchesCountrySearch(
-            displayName = passport.name,
-            isoNumeric = passport.isoNumeric,
-            query = normalizedQuery
-        ) &&
-            (regionFilter.region == null || passport.region == regionFilter.region)
+    val visiblePassports = remember(
+        passports,
+        normalizedQuery,
+        regionFilter,
+        displayLocale
+    ) {
+        passports
+            .filter { passport ->
+                matchesCountrySearch(
+                    displayName = localizedCountryName(
+                        passport.isoNumeric,
+                        passport.name,
+                        displayLocale
+                    ),
+                    isoNumeric = passport.isoNumeric,
+                    query = normalizedQuery
+                ) &&
+                    (regionFilter.region == null || passport.region == regionFilter.region)
+            }
+            .sortedBy { passport ->
+                localizedCountryName(
+                    passport.isoNumeric,
+                    passport.name,
+                    displayLocale
+                )
+            }
     }
     val showRecent = normalizedQuery.isBlank() &&
         regionFilter == PassportRegionFilter.ALL
@@ -130,14 +140,14 @@ internal fun PassportPickerSheet(
                 .fillMaxHeight()
         ) {
             Text(
-                text = "Выберите паспорт",
+                text = stringResource(R.string.choose_passport),
                 modifier = Modifier.padding(horizontal = horizontalPadding),
                 color = borderlyPrimaryContentColor(),
                 fontSize = if (compact) 24.sp else 27.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "${passports.size} паспортов с визовыми данными",
+                text = stringResource(R.string.passports_with_data, passports.size),
                 modifier = Modifier.padding(
                     start = horizontalPadding,
                     top = 5.dp,
@@ -164,7 +174,7 @@ internal fun PassportPickerSheet(
                     ),
                 placeholder = {
                     Text(
-                        text = "Название паспорта",
+                        text = stringResource(R.string.passport_name),
                         color = borderlySecondaryContentColor(),
                         fontSize = 14.sp,
                         maxLines = 1
@@ -225,9 +235,9 @@ internal fun PassportPickerSheet(
             ) {
                 Text(
                     text = if (showRecent && recentPassports.isNotEmpty()) {
-                        "Недавние"
+                        stringResource(R.string.recent)
                     } else {
-                        regionFilter.title
+                        regionFilter.localizedTitle()
                     },
                     color = borderlyPrimaryContentColor(),
                     fontSize = 13.sp,
@@ -235,7 +245,7 @@ internal fun PassportPickerSheet(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "Найдено: ${visiblePassports.size}",
+                    text = stringResource(R.string.found_count, visiblePassports.size),
                     color = borderlySecondaryContentColor(),
                     fontSize = 12.sp
                 )
@@ -250,7 +260,7 @@ internal fun PassportPickerSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Паспорт не найден",
+                        text = stringResource(R.string.passport_not_found),
                         color = borderlySecondaryContentColor(),
                         fontSize = 15.sp
                     )
@@ -284,7 +294,7 @@ internal fun PassportPickerSheet(
                         }
                         item(key = "all_passports_title") {
                             Text(
-                                text = "Все паспорта",
+                                text = stringResource(R.string.all_passports),
                                 modifier = Modifier.padding(top = 7.dp, bottom = 1.dp),
                                 color = borderlyPrimaryContentColor(),
                                 fontSize = 13.sp,
@@ -321,10 +331,6 @@ private fun PassportPickerRegionChip(
     rimColor: Color,
     onClick: () -> Unit
 ) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val selectedChipColor = if (darkTheme) Color(0xFF303B46) else borderlySelectedControlColor()
-    val selectedChipRimColor = if (darkTheme) Color(0xFF657381) else borderlySelectedControlColor()
-
     Surface(
         modifier = Modifier
             .then(
@@ -344,7 +350,7 @@ private fun PassportPickerRegionChip(
         shadowElevation = 0.dp
     ) {
         Text(
-            text = filter.title,
+            text = filter.localizedTitle(),
             modifier = Modifier.padding(
                 horizontal = if (compact) 10.dp else 13.dp,
                 vertical = if (compact) 8.dp else 9.dp
@@ -365,8 +371,6 @@ internal fun PassportRegionChip(
     onClick: () -> Unit
 ) {
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val selectedChipColor = if (darkTheme) Color(0xFF303B46) else borderlySelectedControlColor()
-    val selectedChipRimColor = if (darkTheme) Color(0xFF657381) else borderlySelectedControlColor()
     val unselectedColor = if (darkTheme) {
         MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
     } else {
@@ -377,6 +381,26 @@ internal fun PassportRegionChip(
     } else {
         Color.White
     }
+    // Selection is a smooth state change, not a swap.
+    val chipSurfaceColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else unselectedColor,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "regionChipSurface"
+    )
+    val chipBorderColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else Color.Transparent,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "regionChipBorder"
+    )
+    val chipTextColor by animateColorAsState(
+        targetValue = if (selected) {
+            borderlySelectedContentColor()
+        } else {
+            borderlyPrimaryContentColor()
+        },
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "regionChipText"
+    )
 
     Surface(
         modifier = Modifier
@@ -391,18 +415,18 @@ internal fun PassportRegionChip(
                     )
                 }
             )
-            .noRippleClick(onClick),
-        color = if (selected) borderlySelectedControlColor() else unselectedColor,
+            .borderlyPressable(onClick),
+        color = chipSurfaceColor,
         shape = RoundedCornerShape(50),
-        border = if (selected) BorderStroke(1.dp, borderlySelectedControlColor()) else null
+        border = BorderStroke(1.dp, chipBorderColor)
     ) {
         Text(
-            text = filter.title,
+            text = filter.localizedTitle(),
             modifier = Modifier.padding(
                 horizontal = if (compact) 10.dp else 13.dp,
                 vertical = if (compact) 8.dp else 9.dp
             ),
-            color = if (selected) borderlySelectedContentColor() else borderlyPrimaryContentColor(),
+            color = chipTextColor,
             fontSize = if (compact) 11.sp else 12.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -459,7 +483,7 @@ internal fun PassportPickerRow(
                     .weight(1f)
             ) {
                 Text(
-                    text = passport.name,
+                    text = passport.localizedName(),
                     color = titleColor,
                     fontSize = if (compact) 15.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -467,7 +491,7 @@ internal fun PassportPickerRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = passport.region.title,
+                    text = passport.region.localizedTitle(),
                     modifier = Modifier.padding(top = 2.dp),
                     color = subtitleColor,
                     fontSize = 12.sp
@@ -501,6 +525,7 @@ internal fun CountryPickerSheet(
     onClearSelectedRegion: () -> Unit = {},
     onCountrySelected: (CountryInfo) -> Unit
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     var query by rememberSaveable(filter, initialExactVisaType) { mutableStateOf("") }
     val countryListState = rememberLazyListState()
     val effectiveRegion = selectedRegion ?: filter.region
@@ -522,8 +547,10 @@ internal fun CountryPickerSheet(
         mutableStateOf(initialExactVisaType)
     }
 
-    val sortedCountries = remember(countries) {
-        countries.sortedBy { it.name }
+    val sortedCountries = remember(countries, displayLocale) {
+        countries.sortedBy {
+            localizedCountryName(it.isoNumeric, it.name, displayLocale)
+        }
     }
 
     val visibleCountries = remember(
@@ -535,7 +562,7 @@ internal fun CountryPickerSheet(
     ) {
         sortedCountries.filter { country ->
             matchesCountrySearch(
-                displayName = country.name,
+                displayName = localizedCountryName(country.isoNumeric, country.name, displayLocale),
                 isoNumeric = country.isoNumeric,
                 query = query
             ) &&
@@ -585,14 +612,14 @@ internal fun CountryPickerSheet(
                 .fillMaxHeight()
         ) {
             Text(
-                text = "Выберите страну",
+                text = stringResource(R.string.choose_country),
                 modifier = Modifier.padding(horizontal = horizontalPadding),
                 color = borderlyPrimaryContentColor(),
                 fontSize = if (compact) 24.sp else 27.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Паспорт и направление определяют условия въезда",
+                text = stringResource(R.string.passport_destination_hint),
                 modifier = Modifier.padding(
                     start = horizontalPadding,
                     top = 5.dp,
@@ -619,7 +646,7 @@ internal fun CountryPickerSheet(
                     ),
                 placeholder = {
                     Text(
-                        "Название страны",
+                        stringResource(R.string.country_name),
                         color = borderlySecondaryContentColor(),
                         fontSize = 14.sp,
                         maxLines = 1
@@ -684,11 +711,12 @@ internal fun CountryPickerSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .padding(
                         start = horizontalPadding,
-                        top = 10.dp,
+                        top = 0.dp,
                         end = horizontalPadding,
-                        bottom = 10.dp
+                        bottom = 0.dp
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -698,15 +726,15 @@ internal fun CountryPickerSheet(
                     Text(
                         text = when {
                             selectedRegion != null && exactVisaType != null ->
-                                "${selectedRegion.title} · ${exactVisaType!!.title}"
+                                "${selectedRegion.localizedTitle()} · ${exactVisaType!!.localizedTitle()}"
                             selectedRegion != null && statusFilter != VisaStatusFilter.ALL ->
-                                "${selectedRegion.title} · ${statusFilter.title}"
-                            selectedRegion != null -> selectedRegion.title
-                            exactVisaType != null -> exactVisaType!!.title
+                                "${selectedRegion.localizedTitle()} · ${statusFilter.localizedTitle()}"
+                            selectedRegion != null -> selectedRegion.localizedTitle()
+                            exactVisaType != null -> exactVisaType!!.localizedTitle()
                             filter.region != null && statusFilter != VisaStatusFilter.ALL ->
-                                "${filter.title} · ${statusFilter.title}"
-                            statusFilter == VisaStatusFilter.ALL -> filter.title
-                            else -> statusFilter.title
+                                "${filter.localizedTitle()} · ${statusFilter.localizedTitle()}"
+                            statusFilter == VisaStatusFilter.ALL -> filter.localizedTitle()
+                            else -> statusFilter.localizedTitle()
                         },
                         color = borderlyPrimaryContentColor(),
                         fontSize = 13.sp,
@@ -717,13 +745,13 @@ internal fun CountryPickerSheet(
                         Spacer(modifier = Modifier.width(4.dp))
                         Box(
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(48.dp)
                                 .noRippleClick(onClearSelectedRegion),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
-                                contentDescription = "Сбросить регион",
+                                contentDescription = stringResource(R.string.reset_region),
                                 modifier = Modifier.size(15.dp),
                                 tint = TextSecondary
                             )
@@ -733,7 +761,7 @@ internal fun CountryPickerSheet(
 
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "Найдено: ${visibleCountries.size}",
+                    text = stringResource(R.string.found_count, visibleCountries.size),
                     color = borderlySecondaryContentColor(),
                     fontSize = 12.sp
                 )
@@ -748,7 +776,7 @@ internal fun CountryPickerSheet(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Страна не найдена",
+                        text = stringResource(R.string.country_not_found),
                         color = borderlySecondaryContentColor(),
                         fontSize = 15.sp
                     )
@@ -765,7 +793,7 @@ internal fun CountryPickerSheet(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     overscrollEffect = null
                 ) {
-                    items(visibleCountries, key = { it.name }) { country ->
+                    items(visibleCountries, key = { it.isoNumeric }) { country ->
                         CountryPickerRow(
                             country = country,
                             compact = compact,
@@ -827,7 +855,7 @@ internal fun VisaStatusChip(
                 Spacer(modifier = Modifier.width(7.dp))
             }
             Text(
-                text = filter.title,
+                text = filter.localizedTitle(),
                 color = if (selected) borderlySelectedContentColor() else borderlyPrimaryContentColor(),
                 fontSize = if (compact) 11.sp else 12.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -845,6 +873,11 @@ internal fun CountryPickerRow(
     rimColor: Color,
     onClick: () -> Unit
 ) {
+    val visaBadgeContentColor = borderlyReadableAccentColor(
+        accent = country.visaType.color,
+        background = surfaceColor,
+        accentBackgroundAlpha = .15f
+    )
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -872,7 +905,7 @@ internal fun CountryPickerRow(
                     .weight(1f)
             ) {
                 Text(
-                    text = country.name,
+                    text = localizedCountryName(country.isoNumeric, country.name),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = if (compact) 15.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -901,8 +934,8 @@ internal fun CountryPickerRow(
                     )
             ) {
                 Text(
-                    text = country.visaType.title,
-                    color = country.visaType.color,
+                    text = country.visaType.localizedTitle(),
+                    color = visaBadgeContentColor,
                     fontSize = if (compact) 10.sp else 11.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -1102,6 +1135,3 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPickerFadedRout
         drawRoute(lowerPath)
     }
 }
-
-
-
