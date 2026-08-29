@@ -5,12 +5,22 @@ import android.graphics.Paint
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,10 +31,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -57,7 +68,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -65,7 +75,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.focus.onFocusChanged
@@ -77,10 +86,11 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -548,7 +558,7 @@ internal fun PassportStrengthMapCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "Карта недоступна",
+                            stringResource(R.string.map_unavailable),
                             color = borderlySecondaryContentColor(),
                             fontSize = 12.sp
                         )
@@ -600,7 +610,7 @@ internal fun PassportStrengthLegend(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Сильнее",
+            text = stringResource(R.string.stronger),
             color = borderlySecondaryContentColor(),
             fontSize = 10.sp
         )
@@ -629,7 +639,7 @@ internal fun PassportStrengthLegend(
         }
 
         Text(
-            text = "Слабее",
+            text = stringResource(R.string.weaker),
             color = borderlySecondaryContentColor(),
             fontSize = 10.sp
         )
@@ -647,7 +657,7 @@ internal fun RankingSortToggle(
     val selectedColor = borderlySelectedControlColor()
     val selectedContentColor = borderlySelectedContentColor()
 
-    Row(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
@@ -660,30 +670,51 @@ internal fun RankingSortToggle(
             .clip(RoundedCornerShape(50))
             .padding(3.dp)
     ) {
-        RankingSortOrder.entries.forEach { option ->
-            val isSelected = option == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .background(
-                        color = if (isSelected) selectedColor else Color.Transparent,
-                        shape = RoundedCornerShape(50)
+        val options = RankingSortOrder.entries
+        // maxWidth already represents the area inside padding(3.dp), so using
+        // it directly keeps the active pill equally inset on every edge.
+        val segmentWidth = maxWidth / options.size
+        // One pill that glides between options: the active state physically
+        // moves there. Critically damped spring = fluid without bouncing.
+        val indicatorX by animateDpAsState(
+            targetValue = segmentWidth * options.indexOf(selected),
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            ),
+            label = "rankingSortIndicator"
+        )
+
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorX)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .background(selectedColor, RoundedCornerShape(50))
+        )
+
+        Row(modifier = Modifier.fillMaxSize()) {
+            options.forEach { option ->
+                val isSelected = option == selected
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .borderlyPressable { onSelected(option) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = option.localizedTitle(),
+                        color = if (isSelected) {
+                            selectedContentColor
+                        } else {
+                            borderlySecondaryContentColor()
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1
                     )
-                    .noRippleClick { onSelected(option) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = option.title,
-                    color = if (isSelected) {
-                        selectedContentColor
-                    } else {
-                        borderlySecondaryContentColor()
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1
-                )
+                }
             }
         }
     }
@@ -771,7 +802,7 @@ internal fun PassportRankingCountryDialog(
                         )
                         if (rank != null) {
                             Text(
-                                text = "$rank место в мировом рейтинге",
+                                text = stringResource(R.string.world_rank, rank),
                                 modifier = Modifier.padding(top = 2.dp),
                                 color = borderlySecondaryContentColor(),
                                 fontSize = 12.sp
@@ -795,7 +826,7 @@ internal fun PassportRankingCountryDialog(
 
                 if (mobility == null) {
                     Text(
-                        text = "Для этого паспорта пока нет данных в рейтинге.",
+                        text = stringResource(R.string.ranking_no_data),
                         modifier = Modifier.padding(top = 20.dp),
                         color = borderlySecondaryContentColor(),
                         fontSize = 14.sp,
@@ -825,7 +856,7 @@ internal fun PassportRankingCountryDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = " без визы",
+                                text = " " + stringResource(R.string.visa_free_metric).lowercase(),
                                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                                 color = borderlySecondaryContentColor(),
                                 fontSize = 13.sp
@@ -837,7 +868,7 @@ internal fun PassportRankingCountryDialog(
                     val freedom = mobility.counts[VisaType.FREEDOM] ?: 0
 
                     Text(
-                        text = "$visaFree без визы + $freedom свобода передвижения",
+                        text = stringResource(R.string.visa_free_and_freedom, visaFree, freedom),
                         modifier = Modifier.padding(top = 8.dp),
                         color = borderlySecondaryContentColor(),
                         fontSize = 11.sp
@@ -848,26 +879,26 @@ internal fun PassportRankingCountryDialog(
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
 
-                    RankingDetailRow(VisaType.ETA.title, mobility.counts[VisaType.ETA] ?: 0)
+                    RankingDetailRow(VisaType.ETA.localizedTitle(), mobility.counts[VisaType.ETA] ?: 0)
                     RankingDetailRow(
-                        "Виза по прибытии",
+                        VisaType.VISA_ON_ARRIVAL.localizedTitle(),
                         mobility.counts[VisaType.VISA_ON_ARRIVAL] ?: 0
                     )
-                    RankingDetailRow(VisaType.E_VISA.title, mobility.counts[VisaType.E_VISA] ?: 0)
+                    RankingDetailRow(VisaType.E_VISA.localizedTitle(), mobility.counts[VisaType.E_VISA] ?: 0)
                     RankingDetailRow(
-                        "Нужна виза",
+                        VisaType.VISA_REQUIRED.localizedTitle(),
                         mobility.counts[VisaType.VISA_REQUIRED] ?: 0
                     )
                     RankingDetailRow(
-                        VisaType.ENTRY_RESTRICTED.title,
+                        VisaType.ENTRY_RESTRICTED.localizedTitle(),
                         mobility.counts[VisaType.ENTRY_RESTRICTED] ?: 0
                     )
                     RankingDetailRow(
-                        VisaType.SPECIAL_PERMIT.title,
+                        VisaType.SPECIAL_PERMIT.localizedTitle(),
                         mobility.counts[VisaType.SPECIAL_PERMIT] ?: 0
                     )
                     RankingDetailRow(
-                        VisaType.MIXED_REQUIREMENTS.title,
+                        VisaType.MIXED_REQUIREMENTS.localizedTitle(),
                         mobility.counts[VisaType.MIXED_REQUIREMENTS] ?: 0
                     )
                 }
@@ -885,11 +916,11 @@ internal fun PassportRankingCountryDialog(
                                 fadeFraction = 0.19f
                             )
                             .clip(RoundedCornerShape(50))
-                            .noRippleClick(onShow),
+                            .borderlyPressable(onShow),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Показать доступные страны",
+                            text = stringResource(R.string.show_accessible_countries),
                             color = selectedButtonTextColor,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -900,7 +931,7 @@ internal fun PassportRankingCountryDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = if (onShowAvailableCountries == null) 18.dp else 9.dp)
-                        .height(44.dp)
+                        .height(48.dp)
                         .background(closeButtonColor, RoundedCornerShape(50))
                         .borderlyAdaptivePillRim(
                             rimColor = dialogRimColor,
@@ -908,11 +939,11 @@ internal fun PassportRankingCountryDialog(
                             fadeFraction = 0.19f
                         )
                         .clip(RoundedCornerShape(50))
-                        .noRippleClick(onDismiss),
+                        .borderlyPressable(onDismiss),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Закрыть",
+                        stringResource(R.string.close),
                         color = closeButtonTextColor,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
@@ -925,14 +956,16 @@ internal fun PassportRankingCountryDialog(
 
 @Composable
 internal fun PassportRankingScreen(
-    passports: List<Passport>,
     nativeMap: NativeMapData?,
     visaDatabase: VisaDatabase,
     selectedPassport: Passport,
+    ranking: List<PassportMobility>,
+    rankByPassport: Map<Int, Int>,
     hazeState: HazeState,
     onHeaderPassportClick: () -> Unit,
     onPassportClick: (Passport) -> Unit
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     var query by rememberSaveable { mutableStateOf("") }
     var regionFilter by rememberSaveable { mutableStateOf(PassportRegionFilter.ALL) }
     var sortOrder by rememberSaveable { mutableStateOf(RankingSortOrder.STRONGEST_FIRST) }
@@ -942,7 +975,6 @@ internal fun PassportRankingScreen(
     var searchBottomInWindow by remember { mutableFloatStateOf(0f) }
 
     val rankingListState = rememberLazyListState()
-    // Local backdrop source for the floating Borderly glass button.
     val scrollToTopHazeState = rememberHazeState()
     val scrollToTopScope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -978,43 +1010,45 @@ internal fun PassportRankingScreen(
         }
     }
 
-    val ranking = remember(passports, nativeMap, visaDatabase) {
-        passports
-            .map { passportMobility(it, nativeMap, visaDatabase) }
-            .sortedWith(
-                compareByDescending<PassportMobility> { it.score }
-                    .thenBy { it.passport.name }
-            )
-    }
-    val rankByPassport = remember(ranking) {
-        // Dense ranking: equal scores share a place and the next unique
-        // score gets the next consecutive place: 1, 2, 3, 4, 4, 4, 5...
-        val result = mutableMapOf<Int, Int>()
-        var previousScore: Int? = null
-        var currentRank = 0
-        ranking.forEach { mobility ->
-            if (mobility.score != previousScore) {
-                currentRank += 1
-                previousScore = mobility.score
-            }
-            result[mobility.passport.isoNumeric] = currentRank
-        }
-        result
-    }
-    val filteredRanking = ranking.filter { mobility ->
-        matchesCountrySearch(
-            displayName = mobility.passport.name,
-            isoNumeric = mobility.passport.isoNumeric,
-            query = query
-        ) &&
+    // Ranking and dense ranks arrive precomputed from the home container,
+    // so opening this tab no longer rebuilds ~200 passport mobilities on
+    // the main thread.
+    val visibleRanking = remember(
+        ranking,
+        query,
+        regionFilter,
+        sortOrder,
+        displayLocale
+    ) {
+        val filtered = ranking.filter { mobility ->
+            matchesCountrySearch(
+                displayName = localizedCountryName(
+                    mobility.passport.isoNumeric,
+                    mobility.passport.name,
+                    displayLocale
+                ),
+                isoNumeric = mobility.passport.isoNumeric,
+                query = query
+            ) &&
                 (regionFilter.region == null || mobility.passport.region == regionFilter.region)
-    }
-    val visibleRanking = when (sortOrder) {
-        RankingSortOrder.STRONGEST_FIRST -> filteredRanking
-        RankingSortOrder.WEAKEST_FIRST -> filteredRanking.sortedWith(
-            compareBy<PassportMobility> { it.score }
-                .thenBy { it.passport.name }
-        )
+        }
+        val localizedName: (PassportMobility) -> String = { mobility ->
+            localizedCountryName(
+                mobility.passport.isoNumeric,
+                mobility.passport.name,
+                displayLocale
+            )
+        }
+        when (sortOrder) {
+            RankingSortOrder.STRONGEST_FIRST -> filtered.sortedWith(
+                compareByDescending<PassportMobility> { it.score }
+                    .thenBy(localizedName)
+            )
+            RankingSortOrder.WEAKEST_FIRST -> filtered.sortedWith(
+                compareBy<PassportMobility> { it.score }
+                    .thenBy(localizedName)
+            )
+        }
     }
     val minScore = remember(ranking) { ranking.minOfOrNull { it.score } ?: 0 }
     val maxScore = remember(ranking) { ranking.maxOfOrNull { it.score } ?: 0 }
@@ -1027,21 +1061,25 @@ internal fun PassportRankingScreen(
     }
     val highlightedPassportIso = selectedMapCountryIso ?: selectedPassport.isoNumeric
 
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val glassControlColor = borderlyControlSurfaceColor()
     val lowEndDevice = LocalBorderlyLowEndMode.current
-    // Match the floating map +/- controls exactly: same base color/alpha,
-    // same 3.dp glass blur and same low-end fallback.
     val roundControlRimColor = borderlyControlRimColor()
-    val roundControlColor = glassControlColor.copy(alpha = if (lowEndDevice) 1f else 0.68f)
-    // Exact same glass recipe as the 48.dp map +/- controls.
-val mapControlHazeStyle = HazeStyle(
-    backgroundColor = MaterialTheme.colorScheme.surface,
-    tint = HazeTint(roundControlColor),
-    blurRadius = 3.dp,
-    noiseFactor = 0f,
-    fallbackTint = HazeTint(roundControlColor)
-)
+    val roundControlColor = if (lowEndDevice) {
+        // Непрозрачная поверхность вместо стекла: blur выключен, а кнопка
+        // не должна просвечивать.
+        borderlyOpaqueControlSurfaceColor()
+    } else {
+        glassControlColor.copy(alpha = 0.68f)
+    }
+
+    // Exactly the same glass recipe as the 48.dp + / - controls on the map.
+    val mapControlHazeStyle = HazeStyle(
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        tint = HazeTint(roundControlColor),
+        blurRadius = 3.dp,
+        noiseFactor = 0f,
+        fallbackTint = HazeTint(roundControlColor)
+    )
     val glassRimColor = borderlyControlRimColor()
     val mapControlContentColor = borderlyPrimaryContentColor()
 
@@ -1130,7 +1168,7 @@ val mapControlHazeStyle = HazeStyle(
                         ) {
                             if (query.isEmpty()) {
                                 Text(
-                                    text = "Название паспорта",
+                                    text = stringResource(R.string.passport_name),
                                     color = borderlySecondaryContentColor(),
                                     maxLines = 1,
                                     lineHeight = 20.sp
@@ -1155,9 +1193,9 @@ val mapControlHazeStyle = HazeStyle(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, top = 11.dp),
+                    .padding(top = 11.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(end = 20.dp)
+                contentPadding = PaddingValues(horizontal = 20.dp)
             ) {
                 items(PassportRegionFilter.entries, key = { it.name }) { option ->
                     PassportRegionChip(
@@ -1178,14 +1216,14 @@ val mapControlHazeStyle = HazeStyle(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Мировой рейтинг",
+                    text = stringResource(R.string.world_ranking),
                     color = borderlyPrimaryContentColor(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = "Найдено: ${visibleRanking.size}",
+                    text = stringResource(R.string.found_count, visibleRanking.size),
                     color = borderlySecondaryContentColor(),
                     fontSize = 11.sp
                 )
@@ -1211,12 +1249,10 @@ val mapControlHazeStyle = HazeStyle(
 
         item {
             Text(
-                text = "Методика: расчёт по ${visaDatabase.destinationCount} направлениям. " +
-                        "Итоговое число — " +
-                        "количество направлений без визы " +
-                        "плюс страны со свободой передвижения. Электронные разрешения, электронные визы, " +
-                        "виза по прибытии, обычная виза и страна самого паспорта " +
-                        "в итог не входят.",
+                text = stringResource(
+                    R.string.ranking_methodology,
+                    visaDatabase.destinationCount
+                ),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 color = borderlySecondaryContentColor(),
                 fontSize = 11.sp,
@@ -1229,11 +1265,21 @@ val mapControlHazeStyle = HazeStyle(
             }
         }
 
-        if (showScrollToTop) {
+        // Materialize instead of popping in: scale from 0.9 (never from 0)
+        // with a quick fade, per the "nothing appears from nothing" rule.
+        AnimatedVisibility(
+            visible = showScrollToTop,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 132.dp),
+            enter = fadeIn(animationSpec = tween(160)) + scaleIn(
+                initialScale = 0.9f,
+                animationSpec = tween(180, easing = BorderlyStrongEaseOut)
+            ),
+            exit = fadeOut(animationSpec = tween(120))
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 132.dp)
                     .size(48.dp)
                     .clip(CircleShape)
                     .hazeEffect(
@@ -1326,16 +1372,22 @@ val mapControlHazeStyle = HazeStyle(
                         drawFadedRimArc(185f)
                         drawFadedRimArc(5f)
                     }
-                    .noRippleClick {
+                    .borderlyPressable {
                         scrollToTopScope.launch {
-                            rankingListState.animateScrollToItem(0)
+                            if (lowEndDevice) {
+                                // Мгновенный прыжок вместо долгой анимации по
+                                // сотням элементов на слабых устройствах.
+                                rankingListState.scrollToItem(0)
+                            } else {
+                                rankingListState.animateScrollToItem(0)
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowUp,
-                    contentDescription = "Наверх",
+                    contentDescription = stringResource(R.string.back_to_top),
                     tint = mapControlContentColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -1346,7 +1398,7 @@ val mapControlHazeStyle = HazeStyle(
     selectedMapCountry?.let { selected ->
         val mobility = ranking.firstOrNull { it.passport.isoNumeric == selected.first }
         PassportRankingCountryDialog(
-            countryName = selected.second,
+            countryName = localizedCountryName(selected.first, selected.second),
             countryFlag = selected.third,
             mobility = mobility,
             rank = mobility?.let { rankByPassport[it.passport.isoNumeric] },
@@ -1382,6 +1434,56 @@ internal fun PassportRankingRow(
         Color.White
     }
 
+    // Selection is a smooth state change, not a swap: the row and its
+    // content ease to the selected palette together in ~180ms.
+    val rowSurfaceColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else rowColor,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowSurface"
+    )
+    val rowBorderColor by animateColorAsState(
+        targetValue = if (selected) borderlySelectedControlColor() else Color.Transparent,
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowBorder"
+    )
+    val nameTextColor by animateColorAsState(
+        targetValue = if (selected) Color.White else borderlyPrimaryContentColor(),
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowName"
+    )
+    val subtitleTextColor by animateColorAsState(
+        targetValue = if (selected) {
+            Color.White.copy(alpha = .72f)
+        } else {
+            borderlySecondaryContentColor()
+        },
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowSubtitle"
+    )
+    val scoreTextColor by animateColorAsState(
+        targetValue = if (selected) Color.White else borderlyPrimaryContentColor(),
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowScore"
+    )
+    val badgeBackground by animateColorAsState(
+        targetValue = when {
+            selected -> Color.White
+            rank <= 3 -> borderlySelectedControlColor()
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowBadge"
+    )
+    val badgeTextColor by animateColorAsState(
+        targetValue = when {
+            selected -> borderlySelectedControlColor()
+            rank <= 3 -> Color.White
+            else -> borderlySecondaryContentColor()
+        },
+        animationSpec = tween(180, easing = BorderlyStrongEaseOut),
+        label = "rankingRowBadgeText"
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1395,10 +1497,10 @@ internal fun PassportRankingRow(
                     )
                 }
             )
-            .noRippleClick(onClick),
-        color = if (selected) borderlySelectedControlColor() else rowColor,
+            .borderlyPressable(onClick),
+        color = rowSurfaceColor,
         shape = RoundedCornerShape(26.dp),
-        border = if (selected) BorderStroke(1.dp, borderlySelectedControlColor()) else null
+        border = BorderStroke(1.dp, rowBorderColor)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1408,22 +1510,14 @@ internal fun PassportRankingRow(
                 modifier = Modifier
                     .size(34.dp)
                     .background(
-                        color = when {
-                            selected -> Color.White
-                            rank <= 3 -> borderlySelectedControlColor()
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        },
+                        color = badgeBackground,
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = rank.toString(),
-                    color = when {
-                        selected -> borderlySelectedControlColor()
-                        rank <= 3 -> Color.White
-                        else -> borderlySecondaryContentColor()
-                    },
+                    color = badgeTextColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -1439,12 +1533,8 @@ internal fun PassportRankingRow(
                     .weight(1f)
             ) {
                 Text(
-                    text = mobility.passport.name,
-                    color = if (selected) {
-                        Color.White
-                    } else {
-                        borderlyPrimaryContentColor()
-                    },
+                    text = mobility.passport.localizedName(),
+                    color = nameTextColor,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -1453,14 +1543,14 @@ internal fun PassportRankingRow(
                 val visaFreeCount = mobility.counts[VisaType.VISA_FREE] ?: 0
                 val freedomCount = mobility.counts[VisaType.FREEDOM] ?: 0
                 Text(
-                    text = "${mobility.passport.region.title} · $visaFreeCount без визы · " +
-                            "$freedomCount свобода",
+                    text = stringResource(
+                        R.string.ranking_row_subtitle,
+                        mobility.passport.region.localizedTitle(),
+                        visaFreeCount,
+                        freedomCount
+                    ),
                     modifier = Modifier.padding(top = 2.dp),
-                    color = if (selected) {
-                        Color.White.copy(alpha = .72f)
-                    } else {
-                        borderlySecondaryContentColor()
-                    },
+                    color = subtitleTextColor,
                     fontSize = 10.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1469,21 +1559,13 @@ internal fun PassportRankingRow(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = mobility.score.toString(),
-                    color = if (selected) {
-                        Color.White
-                    } else {
-                        borderlyPrimaryContentColor()
-                    },
+                    color = scoreTextColor,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "без визы",
-                    color = if (selected) {
-                        Color.White.copy(alpha = .72f)
-                    } else {
-                        borderlySecondaryContentColor()
-                    },
+                    text = stringResource(R.string.visa_free_metric).lowercase(),
+                    color = subtitleTextColor,
                     fontSize = 10.sp
                 )
             }

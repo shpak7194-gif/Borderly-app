@@ -1,9 +1,9 @@
 package com.example.borderly
 
-// BORDERLY_COUNTRY_DETAILS_CURRENT_CARD_DESIGN_2026_08_19
-
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -27,7 +27,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -50,7 +54,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -75,6 +81,7 @@ internal fun CountryDetailsSheet(
     onClose: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
+    val displayLocale = LocalConfiguration.current.locales[0]
     var applicationDocumentsExpanded by remember(
         country.isoNumeric,
         passport.isoNumeric
@@ -90,22 +97,34 @@ internal fun CountryDetailsSheet(
     val effectiveSourceType = country.sourceType.takeUnless {
         it == VisaSourceType.UNKNOWN
     } ?: VisaSourceType.DATASET
-    val readableDataDate = remember(effectiveUpdated) {
-        formatDataDateForUi(effectiveUpdated)
+    val readableDataDate = remember(effectiveUpdated, displayLocale) {
+        formatDataDateForUi(effectiveUpdated, displayLocale)
     }
-    val lastCheckText = remember(dataLastCheckedAt) {
-        formatLastSuccessfulCheckForUi(dataLastCheckedAt)
+    val lastCheckText = remember(dataLastCheckedAt, displayLocale) {
+        formatLastSuccessfulCheckForUi(dataLastCheckedAt, displayLocale)
     }
-    val databaseLabel = remember(dataOrigin, dataVersion) {
-        buildString {
-            append("Borderly · ")
-            append(dataOrigin.label)
-            if (dataVersion > 0) {
-                append(" · версия ")
-                append(dataVersion)
-            }
+    val databaseOriginLabel = stringResource(
+        if (dataOrigin == VisaDatabaseOrigin.BUNDLED) {
+            R.string.database_origin_bundled
+        } else {
+            R.string.database_origin_synced
         }
-    }
+    )
+    val databaseLabel = stringResource(
+        R.string.database_identity,
+        databaseOriginLabel,
+        dataVersion
+    )
+    val reportCountryName = localizedCountryName(country.isoNumeric, country.name)
+    val reportPassportName = passport.localizedName()
+    val reportVisaType = country.visaType.localizedTitle()
+    val notSpecifiedLabel = stringResource(R.string.not_specified)
+    val statusCardColor = country.visaType.color.copy(alpha = .14f)
+    val statusContentColor = borderlyReadableAccentColor(
+        accent = country.visaType.color,
+        background = MaterialTheme.colorScheme.background,
+        accentBackgroundAlpha = .14f
+    )
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,14 +155,14 @@ internal fun CountryDetailsSheet(
                             .weight(1f)
                     ) {
                     Text(
-                        text = country.name,
+                        text = localizedCountryName(country.isoNumeric, country.name),
                         color = borderlyDetailsPrimaryContentColor(),
                         fontSize = if (compact) 25.sp else 29.sp,
                         lineHeight = if (compact) 29.sp else 33.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Паспорт: ${passport.name}",
+                        text = stringResource(R.string.passport_label, passport.localizedName()),
                         color = borderlyDetailsSecondaryContentColor(),
                         fontSize = 13.sp
                     )
@@ -156,13 +175,13 @@ internal fun CountryDetailsSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 18.dp),
-                backgroundColor = country.visaType.color.copy(alpha = .14f),
+                backgroundColor = statusCardColor,
                 rimColor = country.visaType.color.copy(alpha = .44f)
             ) {
                 Column(modifier = Modifier.padding(if (compact) 15.dp else 18.dp)) {
                     Text(
-                        text = country.visaType.title,
-                        color = country.visaType.color,
+                        text = country.visaType.localizedTitle(),
+                        color = statusContentColor,
                         fontSize = if (compact) 20.sp else 22.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -178,9 +197,12 @@ internal fun CountryDetailsSheet(
         }
 
             if (country.entryRequirements.isNotEmpty()) {
-                item { SheetSectionTitle("Дополнительные требования") }
+                item { SheetSectionTitle(stringResource(R.string.additional_requirements)) }
 
-                items(country.entryRequirements) { requirement ->
+                items(
+                    items = country.entryRequirements,
+                    key = { requirement -> requirement.id }
+                ) { requirement ->
                     EntryRequirementCard(
                         requirement = requirement,
                         onOpenSource = { url ->
@@ -196,7 +218,7 @@ internal fun CountryDetailsSheet(
                 country.visaType != VisaType.HOME_COUNTRY &&
                 country.entryConditions.isNotEmpty()
             ) {
-                item { SheetSectionTitle("Условия въезда") }
+                item { SheetSectionTitle(stringResource(R.string.conditions_of_entry)) }
 
                 item {
                     EntryConditionsCard(
@@ -207,15 +229,15 @@ internal fun CountryDetailsSheet(
             }
 
             if (country.beforeTrip.isNotEmpty()) {
-                item { SheetSectionTitle("Перед поездкой") }
+                item { SheetSectionTitle(stringResource(R.string.before_trip)) }
 
                 items(country.beforeTrip) { step ->
-                    RequirementRow(text = step)
+                    RequirementRow(text = localizedReferenceText(step))
                 }
             }
 
             if (country.entryGuide != null) {
-                item { SheetSectionTitle("Оформление") }
+                item { SheetSectionTitle(stringResource(R.string.application)) }
 
                 item {
                     EntryGuideSummaryCard(
@@ -224,7 +246,7 @@ internal fun CountryDetailsSheet(
                 }
 
                 if (country.entryGuide.steps.isNotEmpty()) {
-                    item { SheetSectionTitle("Что нужно сделать") }
+                    item { SheetSectionTitle(stringResource(R.string.what_to_do)) }
 
                     item {
                         ApplicationStepsCard(
@@ -257,7 +279,7 @@ internal fun CountryDetailsSheet(
                 country.entryGuide != null &&
                 country.entryGuide.links.isNotEmpty()
             ) {
-                item { SheetSectionTitle("Официальные сервисы") }
+                item { SheetSectionTitle(stringResource(R.string.official_services)) }
 
                 item {
                     OfficialEntryLinksCard(
@@ -272,7 +294,7 @@ internal fun CountryDetailsSheet(
             }
 
             if (country.showPassportNote) {
-                item { SheetSectionTitle("Для вашего паспорта") }
+                item { SheetSectionTitle(stringResource(R.string.for_your_passport)) }
 
                 item {
                     InformationCard(text = country.passportNote)
@@ -283,7 +305,7 @@ internal fun CountryDetailsSheet(
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
                     ExpandableExplanationCard(
-                        title = "Почему такой статус?",
+                        title = stringResource(R.string.why_this_status),
                         text = country.statusExplanation,
                         expanded = statusExplanationExpanded,
                         onToggle = {
@@ -295,7 +317,7 @@ internal fun CountryDetailsSheet(
             }
 
             if (country.warning != null) {
-                item { SheetSectionTitle("Важно") }
+                item { SheetSectionTitle(stringResource(R.string.important)) }
 
                 item {
                     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -322,7 +344,7 @@ internal fun CountryDetailsSheet(
                 }
             }
 
-            item { SheetSectionTitle("Подтверждение статуса") }
+            item { SheetSectionTitle(stringResource(R.string.status_confirmation)) }
 
             item {
                 SourceInformationCard(
@@ -337,16 +359,16 @@ internal fun CountryDetailsSheet(
                     specificRuleSource = country.sourceIsRuleSpecific,
                     onReportIssue = {
                         val uri = buildCountryIssueReportMailtoUri(
-                            country.name,
-                            passport.name,
-                            country.visaType.title,
+                            reportCountryName,
+                            reportPassportName,
+                            reportVisaType,
                             country.stay,
                             effectiveSource,
                             effectiveSourceUrl,
                             readableDataDate,
                             lastCheckText,
                             databaseLabel,
-                            "Не указан",
+                            notSpecifiedLabel,
                             "",
                             null
                         )
@@ -362,7 +384,7 @@ internal fun CountryDetailsSheet(
 
             item {
             Text(
-                text = "Справочные данные • перепроверьте условия перед поездкой",
+                text = stringResource(R.string.reference_notice),
                 modifier = Modifier.padding(top = 14.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 12.sp,
@@ -378,14 +400,14 @@ internal fun CountryDetailsSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 BorderlyDetailsActionButton(
-                    text = "Другая страна",
+                    text = stringResource(R.string.another_country),
                     modifier = Modifier.weight(1f),
                     compact = compact,
                     filled = false,
                     onClick = onChooseAnother
                 )
                 BorderlyDetailsActionButton(
-                    text = "Закрыть",
+                    text = stringResource(R.string.close),
                     modifier = Modifier.weight(1f),
                     compact = compact,
                     filled = true,
@@ -801,12 +823,7 @@ internal fun ExpandableExplanationCard(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = if (expanded) "⌃" else "⌄",
-                    color = borderlyDetailsSecondaryContentColor(),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                ExpandableCardArrow(expanded = expanded)
             }
 
             if (expanded) {
@@ -828,6 +845,23 @@ internal fun ExpandableExplanationCard(
 }
 
 @Composable
+private fun ExpandableCardArrow(expanded: Boolean) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 180),
+        label = "countryDetailsArrowRotation"
+    )
+    Icon(
+        imageVector = Icons.Rounded.KeyboardArrowDown,
+        contentDescription = null,
+        modifier = Modifier
+            .size(19.dp)
+            .rotate(rotation),
+        tint = borderlyDetailsSecondaryContentColor()
+    )
+}
+
+@Composable
 internal fun EntryGuideSummaryCard(
     guide: PassportEntryGuide
 ) {
@@ -836,34 +870,34 @@ internal fun EntryGuideSummaryCard(
     ) {
         Column(modifier = Modifier.padding(15.dp)) {
             Text(
-                text = guide.permitName,
+                text = localizedReferenceText(guide.permitName),
                 color = borderlyDetailsPrimaryContentColor(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
 
             EntryGuideFactRow(
-                label = "Подача",
-                value = guide.applicationMethod
+                label = stringResource(R.string.submission),
+                value = localizedReferenceText(guide.applicationMethod)
             )
 
             guide.fee?.let {
                 EntryGuideFactRow(
-                    label = "Сбор",
-                    value = it
+                    label = stringResource(R.string.fee),
+                    value = localizedReferenceText(it)
                 )
             }
 
             guide.timing?.let {
                 EntryGuideFactRow(
-                    label = "Срок / подача",
-                    value = it
+                    label = stringResource(R.string.timing_submission),
+                    value = localizedReferenceText(it)
                 )
             }
 
             guide.extraNote?.let {
                 Text(
-                    text = it,
+                    text = localizedReferenceText(it),
                     modifier = Modifier.padding(top = 12.dp),
                     color = borderlyDetailsSecondaryContentColor(),
                     fontSize = 11.sp,
@@ -878,7 +912,11 @@ internal fun EntryGuideSummaryCard(
             )
 
             Text(
-                text = "${guide.officialAuthority} · проверено ${guide.verified}",
+                text = stringResource(
+                    R.string.verified_by,
+                    localizedReferenceText(guide.officialAuthority),
+                    guide.verified
+                ),
                 modifier = Modifier.padding(top = 10.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 10.sp,
@@ -955,7 +993,7 @@ internal fun ApplicationStepsCard(
                         )
                     }
                     Text(
-                        text = step,
+                        text = localizedReferenceText(step),
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 11.dp, top = 2.dp),
@@ -979,14 +1017,14 @@ internal fun OfficialEntryLinksCard(
     ) {
         Column(modifier = Modifier.padding(15.dp)) {
             Text(
-                text = guide.officialAuthority,
+                text = localizedReferenceText(guide.officialAuthority),
                 color = borderlyDetailsPrimaryContentColor(),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "Ссылки проверены ${guide.verified}",
+                text = stringResource(R.string.links_verified, guide.verified),
                 modifier = Modifier.padding(top = 3.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 10.sp
@@ -1022,9 +1060,9 @@ internal fun OfficialEntryLinksCard(
                 ) {
                     Text(
                         text = if (link.primary) {
-                            "${link.title}  ↗"
+                            "${localizedReferenceText(link.title)}  ↗"
                         } else {
-                            link.title
+                            localizedReferenceText(link.title)
                         },
                         color = textColor,
                         fontSize = 12.sp,
@@ -1035,8 +1073,7 @@ internal fun OfficialEntryLinksCard(
             }
 
             Text(
-                text = "Borderly открывает только указанный государственный ресурс. " +
-                    "Перед оплатой проверьте домен в браузере.",
+                text = stringResource(R.string.official_link_notice),
                 modifier = Modifier.padding(top = 11.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 10.sp,
@@ -1076,12 +1113,7 @@ internal fun ExpandableApplicationDocumentsCard(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = if (expanded) "⌃" else "⌄",
-                    color = borderlyDetailsSecondaryContentColor(),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                ExpandableCardArrow(expanded = expanded)
             }
 
             if (expanded) {
@@ -1093,7 +1125,7 @@ internal fun ExpandableApplicationDocumentsCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Подготовьте",
+                    text = stringResource(R.string.prepare),
                     color = borderlyDetailsSecondaryContentColor(),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
@@ -1116,7 +1148,7 @@ internal fun ExpandableApplicationDocumentsCard(
                                 )
                         )
                         Text(
-                            text = document,
+                            text = localizedReferenceText(document),
                             modifier = Modifier.padding(start = 10.dp),
                             color = borderlyDetailsPrimaryContentColor(),
                             fontSize = 13.sp,
@@ -1127,7 +1159,7 @@ internal fun ExpandableApplicationDocumentsCard(
 
                 if (!note.isNullOrBlank()) {
                     Text(
-                        text = note,
+                        text = localizedReferenceText(note),
                         modifier = Modifier.padding(top = 14.dp),
                         color = borderlyDetailsSecondaryContentColor(),
                         fontSize = 11.sp,
@@ -1144,6 +1176,7 @@ internal fun EntryRequirementCard(
     requirement: EntryRequirement,
     onOpenSource: (String) -> Unit
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     BorderlyDetailsCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -1155,7 +1188,7 @@ internal fun EntryRequirementCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = requirement.type.label,
+                    text = requirement.type.localizedTitle(),
                     modifier = Modifier.weight(1f),
                     color = borderlyDetailsSecondaryContentColor(),
                     fontSize = 11.sp,
@@ -1163,7 +1196,7 @@ internal fun EntryRequirementCard(
                 )
                 if (requirement.mandatory) {
                     Text(
-                        text = "Обязательно",
+                        text = stringResource(R.string.required),
                         color = VisaRequired,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -1172,7 +1205,7 @@ internal fun EntryRequirementCard(
             }
 
             Text(
-                text = requirement.title,
+                text = localizedReferenceText(requirement.title),
                 modifier = Modifier.padding(top = 5.dp),
                 color = borderlyDetailsPrimaryContentColor(),
                 fontSize = 16.sp,
@@ -1180,7 +1213,7 @@ internal fun EntryRequirementCard(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = requirement.summary,
+                text = localizedReferenceText(requirement.summary),
                 modifier = Modifier.padding(top = 7.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 13.sp,
@@ -1201,13 +1234,13 @@ internal fun EntryRequirementCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Когда",
+                        text = stringResource(R.string.when_label),
                         modifier = Modifier.weight(.28f),
                         color = borderlyDetailsSecondaryContentColor(),
                         fontSize = 11.sp
                     )
                     Text(
-                        text = requirement.timing,
+                        text = localizedReferenceText(requirement.timing),
                         modifier = Modifier.weight(.72f),
                         color = borderlyDetailsPrimaryContentColor(),
                         fontSize = 12.sp,
@@ -1219,26 +1252,29 @@ internal fun EntryRequirementCard(
 
             if (requirement.steps.isNotEmpty()) {
                 Text(
-                    text = "Что сделать",
+                    text = stringResource(R.string.what_to_do),
                     modifier = Modifier.padding(top = 13.dp),
                     color = borderlyDetailsPrimaryContentColor(),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 requirement.steps.forEach { step ->
-                    RequirementRow(text = step)
+                    RequirementRow(text = localizedReferenceText(step))
                 }
             }
 
             Text(
-                text = requirement.officialAuthority,
+                text = localizedReferenceText(requirement.officialAuthority),
                 modifier = Modifier.padding(top = 8.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 11.sp,
                 lineHeight = 15.sp
             )
             Text(
-                text = "Проверено ${formatDataDateForUi(requirement.verified)}",
+                text = stringResource(
+                    R.string.verified_date,
+                    formatDataDateForUi(requirement.verified, displayLocale)
+                ),
                 modifier = Modifier.padding(top = 2.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 10.sp
@@ -1253,7 +1289,7 @@ internal fun EntryRequirementCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Официальный источник",
+                    text = stringResource(R.string.official_source),
                     color = borderlyDetailsPrimaryContentColor(),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -1322,11 +1358,11 @@ internal fun SourceInformationCard(
     onOpenSource: () -> Unit
 ) {
     val badgeTitle = when (sourceType) {
-        VisaSourceType.OFFICIAL -> "Официальный источник"
-        VisaSourceType.CORROBORATED -> "Подтверждено несколькими источниками"
-        VisaSourceType.DATASET -> "Общий источник данных"
-        VisaSourceType.DERIVED -> "Производное правило"
-        VisaSourceType.UNKNOWN -> "Источник базы"
+        VisaSourceType.OFFICIAL -> stringResource(R.string.official_source)
+        VisaSourceType.CORROBORATED -> stringResource(R.string.source_corroborated)
+        VisaSourceType.DATASET -> stringResource(R.string.source_dataset)
+        VisaSourceType.DERIVED -> stringResource(R.string.source_derived)
+        VisaSourceType.UNKNOWN -> stringResource(R.string.source_unknown)
     }
     val badgeColor = when (sourceType) {
         VisaSourceType.OFFICIAL,
@@ -1342,37 +1378,37 @@ internal fun SourceInformationCard(
 
         else -> "i"
     }
-    val explanation = sourceDescription ?: when (sourceType) {
+    val explanation = localizedReferenceText(sourceDescription ?: when (sourceType) {
         VisaSourceType.OFFICIAL -> if (specificRuleSource) {
-            "Источник относится к выбранному паспорту и направлению."
+            stringResource(R.string.source_explanation_official_specific)
         } else {
-            "Официальный источник относится к этому направлению."
+            stringResource(R.string.source_explanation_official_destination)
         }
 
         VisaSourceType.CORROBORATED ->
-            "Статус подтверждён официальным сигналом и общей базой данных."
+            stringResource(R.string.source_explanation_corroborated)
 
         VisaSourceType.DATASET ->
-            "Это источник происхождения данных, а не отдельное подтверждение государственного органа."
+            stringResource(R.string.source_explanation_dataset)
 
         VisaSourceType.DERIVED ->
-            "Статус рассчитан по реестру территориальных правил Borderly."
+            stringResource(R.string.source_explanation_derived)
 
         VisaSourceType.UNKNOWN ->
-            "Для этой записи пока не указан отдельный тип подтверждения."
-    }
+            stringResource(R.string.source_explanation_unknown)
+    })
     val changedDateLabel = when (sourceType) {
         VisaSourceType.OFFICIAL,
-        VisaSourceType.CORROBORATED -> "Правило проверено"
+        VisaSourceType.CORROBORATED -> stringResource(R.string.rule_verified)
 
-        else -> "Версия источников базы"
+        else -> stringResource(R.string.source_version)
     }
     val openButtonLabel = when (sourceType) {
         VisaSourceType.OFFICIAL,
-        VisaSourceType.CORROBORATED -> "Открыть подтверждение"
+        VisaSourceType.CORROBORATED -> stringResource(R.string.open_confirmation)
 
-        VisaSourceType.DERIVED -> "Открыть основание"
-        else -> "Открыть источник"
+        VisaSourceType.DERIVED -> stringResource(R.string.open_basis)
+        else -> stringResource(R.string.open_source)
     }
     BorderlyDetailsCard(
         modifier = Modifier.fillMaxWidth()
@@ -1403,16 +1439,15 @@ internal fun SourceInformationCard(
             Spacer(modifier = Modifier.height(11.dp))
 
             Text(
-                text = source,
+                text = localizedReferenceText(source),
                 color = borderlyDetailsPrimaryContentColor(),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
 
-
             if (!sourceLicense.isNullOrBlank()) {
                 Text(
-                    text = "Лицензия источника: $sourceLicense",
+                    text = stringResource(R.string.source_license, sourceLicense),
                     modifier = Modifier.padding(top = 4.dp),
                     color = borderlyDetailsSecondaryContentColor(),
                     fontSize = 10.sp
@@ -1420,7 +1455,7 @@ internal fun SourceInformationCard(
             }
 
             Text(
-                text = "Последняя проверка базы: $lastCheckText",
+                text = stringResource(R.string.database_last_check, lastCheckText),
                 modifier = Modifier.padding(top = 9.dp),
                 color = borderlyDetailsSecondaryContentColor(),
                 fontSize = 11.sp,
@@ -1478,7 +1513,7 @@ internal fun SourceInformationCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Сообщить об ошибке",
+                        text = stringResource(R.string.report_error),
                         color = if (borderlyDetailsDarkTheme()) Color.White else TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -1488,8 +1523,6 @@ internal fun SourceInformationCard(
         }
     }
 }
-
-
 
 @Composable
 internal fun InformationCard(text: String) {
@@ -1505,5 +1538,3 @@ internal fun InformationCard(text: String) {
         )
     }
 }
-
-
