@@ -539,9 +539,12 @@ internal fun VisaType.countsTowardPassportRanking(): Boolean = when (this) {
     else -> false
 }
 
-internal val ScoredVisaTypes: Set<VisaType> = VisaType.entries
-    .filter { it.countsTowardPassportRanking() }
-    .toSet()
+// Keep this lazy: VisaType reads the palette above while its enum constants are
+// being created. Eagerly reading VisaType here would create a JVM initialization
+// cycle and could leave the ranking set incomplete during local unit tests.
+internal val ScoredVisaTypes: Set<VisaType> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    setOf(VisaType.FREEDOM, VisaType.VISA_FREE)
+}
 
 internal data class PassportMobility(
     val passport: Passport,
