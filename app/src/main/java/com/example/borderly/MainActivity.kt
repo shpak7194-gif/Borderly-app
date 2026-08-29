@@ -566,8 +566,13 @@ internal fun BorderlyHomeContent(
                 .hazeSource(state = bottomNavigationHazeState),
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
-        ) { _ ->
-            when (selectedTab) {
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when (selectedTab) {
             AppTab.MAP -> {
                 LazyColumn(
                     state = homeListState,
@@ -686,6 +691,7 @@ internal fun BorderlyHomeContent(
                     onBack = { selectedTab = AppTab.MAP }
                 )
             }
+                }
             }
         }
 
