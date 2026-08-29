@@ -42,6 +42,11 @@ class VisaTaxonomyTest {
     fun rankingScoresOnlyVisaFreeAndFreedom() {
         VisaType.entries.forEach { type ->
             val shouldBeScored = type == VisaType.FREEDOM || type == VisaType.VISA_FREE
+            assertEquals(
+                "Unexpected ranking predicate for $type",
+                shouldBeScored,
+                type.countsTowardPassportRanking()
+            )
             assertEquals("Unexpected ranking rule for $type", shouldBeScored, type in ScoredVisaTypes)
         }
     }

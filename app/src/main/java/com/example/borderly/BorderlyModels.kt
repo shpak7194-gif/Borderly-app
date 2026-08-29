@@ -533,10 +533,15 @@ internal fun visaTypeFor(
 
 // Passport strength is intentionally based only on travel that does not
 // require arranging a visa: visa-free entry + freedom of movement.
-internal val ScoredVisaTypes = setOf(
+internal fun VisaType.countsTowardPassportRanking(): Boolean = when (this) {
     VisaType.FREEDOM,
-    VisaType.VISA_FREE
-)
+    VisaType.VISA_FREE -> true
+    else -> false
+}
+
+internal val ScoredVisaTypes: Set<VisaType> = VisaType.entries
+    .filter { it.countsTowardPassportRanking() }
+    .toSet()
 
 internal data class PassportMobility(
     val passport: Passport,
@@ -581,5 +586,3 @@ internal fun passportMobility(
 //
 // Public version manifest for Borderly visa-data updates.
 // The full database URL is resolved relative to this file.
-
-
