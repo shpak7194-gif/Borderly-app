@@ -409,13 +409,7 @@ internal fun PassportComparisonScreen(
                 contentColor = scrollToTopContentColor,
                 onClick = {
                     scrollToTopScope.launch {
-                        if (lowEndDevice) {
-                            // Мгновенный прыжок вместо долгой анимации по
-                            // сотням элементов на слабых устройствах.
-                            comparisonListState.scrollToItem(0)
-                        } else {
-                            comparisonListState.animateScrollToItem(0)
-                        }
+                        comparisonListState.scrollToItem(0)
                     }
                 }
             )

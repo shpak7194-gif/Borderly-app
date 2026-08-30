@@ -1374,13 +1374,7 @@ internal fun PassportRankingScreen(
                     }
                     .borderlyPressable {
                         scrollToTopScope.launch {
-                            if (lowEndDevice) {
-                                // Мгновенный прыжок вместо долгой анимации по
-                                // сотням элементов на слабых устройствах.
-                                rankingListState.scrollToItem(0)
-                            } else {
-                                rankingListState.animateScrollToItem(0)
-                            }
+                            rankingListState.scrollToItem(0)
                         }
                     },
                 contentAlignment = Alignment.Center

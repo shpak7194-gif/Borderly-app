@@ -2445,7 +2445,15 @@ internal fun MapQuickFiltersSection(
                     selected = filter == selected,
                     hazeState = hazeState,
                     hazeStyle = hazeStyle,
-                    onClick = { onSelected(filter) },
+                    onClick = {
+                        onSelected(
+                            if (filter == selected && filter != MapVisaQuickFilter.ALL) {
+                                MapVisaQuickFilter.ALL
+                            } else {
+                                filter
+                            }
+                        )
+                    },
                     onMeasuredHeight = onChipHeightMeasured
                 )
             }
